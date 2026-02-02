@@ -1,0 +1,62 @@
+import json
+from pathlib import Path
+
+import click
+from markdown_it import MarkdownIt
+from pydantic import TypeAdapter
+from plct_server.ai.engine import AiEngine
+from plct_server.ai.conf import ModelProvider, MODEL_CONFIGS
+from plct_server.ai.client import AiClientFactory
+
+from .models import TestCase
+from .config import OPENAI_API_KEY
+
+
+async def do_inference(cases_fname: str, model:str) -> None:
+    cases_path = Path(cases_fname)
+    with cases_path.open("r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    test_cases = TypeAdapter(list[TestCase]).validate_python(data)
+
+    client_factory = AiClientFactory(
+        default_provider = ModelProvider.OPENAI,
+        openai_api_key = OPENAI_API_KEY,
+        azure_api_key = None,
+        vllm_api_key= "EMPTY"
+    )
+
+    model_config = MODEL_CONFIGS.get(model)
+    if not model_config:
+        raise ValueError(f"Unsupported model: {model}")
+
+
+    click.echo(f"Loaded {len(test_cases)} test cases:")
+    for tc in test_cases:
+        messages = [{
+            "role": "system",
+            "content": tc.system_message
+        }, {
+            "role": "user",
+            "content": tc.prompt
+        }]
+        for take in range(1, 4):
+            click.echo(f"  - {tc.course_key}/{tc.activity_key} (take {take}):")
+            client = client_factory.get_client(model_config=model_config)
+            completion = await client.chat.completions.create(
+                model=model_config.name,
+                messages=messages,
+                max_tokens=8000,
+                temperature=0.5
+            )
+
+            response = completion.choices[0].message.content
+            md = MarkdownIt()
+            html_content = md.render(response)
+            model_safe = model.replace("/", "--")
+            output_file = cases_path.parent / f"{tc.case_key}_{take}_{model_safe}.html"
+            output_file.write_text(html_content, encoding="utf-8")
+            click.echo(f"    Saved response to {output_file}")
+
+
+

@@ -1,0 +1,16 @@
+- case_key: A1
+  course_key: etit2_prog
+  activity_key: 5_stringovi/55_ui_stringa
+  prompt: Дај ми три питања за проверу знања из ове лекције
+- case_key: A2
+  course_key: etit2_prog
+  activity_key: 3_funkcije/310_fje_niz
+  prompt: Дај ми три питања за проверу знања из ове лекције
+- case_key: B1
+  course_key: etit2_prog
+  activity_key: 5_stringovi/55_ui_stringa
+  prompt: Дај ми план часа за ову лекцију
+- case_key: B2
+  course_key: etit2_prog
+  activity_key: 3_funkcije/310_fje_niz
+  prompt: Дај ми план часа за ову лекцију

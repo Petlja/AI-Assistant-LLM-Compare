@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "plct-llm-compare"
+version = "0.1.0"
+description = "PLCT LLM Compare package."
+authors = ["Your Name <you@example.com>"]
+readme = "README.md"
+package-mode = true
+packages = [
+	{ include = "plct_llm_compare", from = "src" }
+]
+
+[tool.poetry.scripts]
+plcmp = "plct_llm_compare.plcmp:main"
+
+[tool.poetry.dependencies]
+python = ">=3.13,<4.0"
+click = "*"
+openai = "*"
+pydantic = "*"
+pyyaml = "*"
+transformers = "*"
+plct-server = { git = "https://github.com/Petlja/PLCT-Server.git", tag = "v0.3.2" }
+
+[tool.poetry.group.dev.dependencies]
+pytest = "*"
+
+[build-system]
+requires = ["poetry-core>=1.8.0"]
+build-backend = "poetry.core.masonry.api"
