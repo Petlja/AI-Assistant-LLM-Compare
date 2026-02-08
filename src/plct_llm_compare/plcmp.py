@@ -5,9 +5,17 @@ import click
 
 from .prepare import do_prepare
 from .inference import do_inference
+from .survey import do_survey
 
 
-@click.group()
+class OrderedGroup(click.Group):
+    """A Click group that lists commands in registration order."""
+
+    def list_commands(self, ctx: click.Context) -> list[str]:
+        return list(self.commands)
+
+
+@click.group(cls=OrderedGroup)
 def main() -> None:
     """PLCT LLM Compare CLI."""
     pass
@@ -43,6 +51,20 @@ def prepare(cases: str) -> None:
 def inference(cases: str, model: str) -> None:
     """Inference of model"""
     asyncio.run(do_inference(cases, model))
+
+
+@main.command()
+@click.option(
+    "--output-dir",
+    "-o",
+    default="eval/output",
+    type=click.Path(exists=True, file_okay=False),
+    help="Path to the output directory with HTML and JSON files.",
+)
+def survey(output_dir: str) -> None:
+    """Generate a SurveyJS survey.json from inference outputs."""
+    do_survey(output_dir)
+
 
 if __name__ == "__main__":
     main()
