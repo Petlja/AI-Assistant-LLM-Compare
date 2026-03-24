@@ -1,20 +1,33 @@
 - case_key: A1
-  course_key: etit2_prog
-  activity_key: 5_stringovi/55_ui_stringa
-  activity_url: https://petlja.org/sr-Latn-RS/kurs/11234/5/8327
-  prompt: Дај ми три питања за проверу знања из ове лекције
+  course_key: 6_razred_IKT_DigitalnaPismenost
+  activity_key: 0cca3ec1-bd01-4769-b759-8a1e7e424bdf
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/353/14/6912
+  activity_desc: Информатика 6 / Дититална писменост / Интернет сервиси
+  prompt: |
+    Направи ми две групе од по три питања, свако питање са понуђених 4 одговора. 
+    Означи шта су тачни одговори са објашњењем.
 - case_key: A2
-  course_key: etit2_prog
-  activity_key: 3_funkcije/310_fje_niz
-  activity_url: https://petlja.org/sr-Latn-RS/kurs/11234/3/8306
-  prompt: Дај ми четири питања за вежбу из ове лекције
-- case_key: B1
-  course_key: etit2_prog
-  activity_key: 5_stringovi/55_ui_stringa
-  activity_url: https://petlja.org/sr-Latn-RS/kurs/11234/5/8327
-  prompt: Направи ми план часа за ову лекцију
-- case_key: B2
-  course_key: etit2_prog
-  activity_key: 3_funkcije/310_fje_niz
-  activity_url: https://petlja.org/sr-Latn-RS/kurs/11234/3/8306
-  prompt: Које главне концепте треба да објасним у овој лекцији
+  course_key: kurs-sesti
+  activity_key: ee8759b0-069a-40da-87fb-b9518e39fa59
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/368/7/5577
+  activity_desc: Информатика 6 / Python / Променљиве - имена придружена подацима
+  prompt: |
+    Издвој главне концепте из ове лекције. 
+    За сваки концепт дај два нивоа објашњенја: 
+    основни ниво који треба да је разумљив свим ученицима и продубљен ниво.
+- case_key: A3
+  course_key: kurs-sesti
+  activity_key: 9b315409-894f-46be-a362-16e233ea9677
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/368/8/5584
+  activity_desc: Информатика 6 / Python / Реално и целобројно дељење
+  prompt: |
+    Направи ми план часа за ову лекцију. Час треба да трана 45 минута. 
+    На крају предложи задатке за домаћи.
+- case_key: A4
+  course_key: 6_razred_IKT_DigitalnaPismenost
+  activity_key: 1aaa7fff-6f50-4a2a-b64d-f6f86ca28043
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/353/13/6909
+  activity_desc: Информатика 6 / Дититална писменост / Употреба ИКТ уређаја у мрежном окружењу
+  prompt: |
+    Дај ми три теме за пројектни задатак везан за ову лекцију, 
+    укључујући инструкције за израду пројектонг задатка.

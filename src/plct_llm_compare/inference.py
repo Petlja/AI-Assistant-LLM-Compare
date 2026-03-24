@@ -5,11 +5,11 @@ import click
 from markdown_it import MarkdownIt
 from pydantic import TypeAdapter
 from plct_server.ai.engine import AiEngine
-from plct_server.ai.conf import ModelProvider, MODEL_CONFIGS
+from plct_server.ai.model_conf import ModelProvider
 from plct_server.ai.client import AiClientFactory
 
 from .models import TestCaseResponce, TestCase
-from .config import OPENAI_API_KEY
+from .config import OPENAI_API_KEY, VLLM_URL, PLCT_AI_CTX_URL
 
 
 async def do_inference(cases_fname: str, model:str) -> None:
@@ -23,10 +23,13 @@ async def do_inference(cases_fname: str, model:str) -> None:
         default_provider = ModelProvider.OPENAI,
         openai_api_key = OPENAI_API_KEY,
         azure_api_key = None,
-        vllm_api_key= "EMPTY"
+        vllm_api_key= "EMPTY",
+        vllm_url = VLLM_URL
     )
 
-    model_config = MODEL_CONFIGS.get(model)
+    ai_engine = AiEngine(ai_ctx_url=PLCT_AI_CTX_URL, client_factory=client_factory)
+
+    model_config = ai_engine.get_model_config(model)
     if not model_config:
         raise ValueError(f"Unsupported model: {model}")
 
@@ -46,7 +49,7 @@ async def do_inference(cases_fname: str, model:str) -> None:
             completion = await client.chat.completions.create(
                 model=model_config.name,
                 messages=messages,
-                max_tokens=8000,
+                max_completion_tokens=8000,
                 temperature=0.5
             )
 
@@ -61,6 +64,7 @@ async def do_inference(cases_fname: str, model:str) -> None:
             metadata = TestCaseResponce(
                 case_key=tc.case_key,
                 activity_url=tc.activity_url,
+                activity_desc=tc.activity_desc,
                 prompt=tc.prompt,
                 model=model,
                 take=take,

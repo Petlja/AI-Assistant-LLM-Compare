@@ -8,7 +8,7 @@ import yaml
 from pydantic import TypeAdapter
 
 from plct_server.ai.engine import AiEngine
-from plct_server.ai.conf import ModelProvider
+from plct_server.ai.model_conf import ModelProvider
 from plct_server.ai.client import AiClientFactory
 
 from .config import OPENAI_API_KEY, PLCT_AI_CTX_URL

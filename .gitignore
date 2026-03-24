@@ -131,3 +131,6 @@ dmypy.json
 
 ### This project specific
 eval/output
+
+# uv
+uv.lock

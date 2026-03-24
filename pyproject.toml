@@ -1,29 +1,45 @@
-[tool.poetry]
+[project]
 name = "plct-llm-compare"
 version = "0.1.0"
 description = "PLCT LLM Compare package."
-authors = ["Your Name <you@example.com>"]
+authors = [{ name = "Your Name", email = "you@example.com" }]
+requires-python = ">=3.13,<4.0"
 readme = "README.md"
-package-mode = true
-packages = [
-	{ include = "plct_llm_compare", from = "src" }
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "click",
+    "openai",
+    "pydantic",
+    "pyyaml",
+    "transformers",
+    "plct-server",
 ]
 
-[tool.poetry.scripts]
+[project.scripts]
 plcmp = "plct_llm_compare.plcmp:main"
 
-[tool.poetry.dependencies]
-python = ">=3.13,<4.0"
-click = "*"
-openai = "*"
-pydantic = "*"
-pyyaml = "*"
-transformers = "*"
-plct-server = { git = "https://github.com/Petlja/PLCT-Server.git", tag = "v0.3.2" }
+[dependency-groups]
+dev = ["pytest"]
 
-[tool.poetry.group.dev.dependencies]
-pytest = "*"
+[tool.uv]
+package = true
+
+[tool.uv.sources]
+plct-server = { path = "../PLCT-Server", editable = true }
+
+[tool.hatch.build.targets.sdist]
+include = ["src/plct_llm_compare"]
+
+[tool.hatch.build.targets.wheel]
+include = ["src/plct_llm_compare"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/plct_llm_compare" = "plct_llm_compare"
 
 [build-system]
-requires = ["poetry-core>=1.8.0"]
-build-backend = "poetry.core.masonry.api"
+requires = ["hatchling"]
+build-backend = "hatchling.build"

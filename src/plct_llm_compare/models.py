@@ -10,8 +10,9 @@ class TestCase(BaseModel):
     course_key: str
     activity_key: str
     activity_url: str
+    activity_desc: str
     prompt: str
-    system_message: str = None
+    system_message: str | None = None
 
 
 class TestCaseResponce(BaseModel):
@@ -19,6 +20,7 @@ class TestCaseResponce(BaseModel):
 
     case_key: str
     activity_url: str
+    activity_desc: str
     prompt: str
     model: str
     take: int
