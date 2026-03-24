@@ -24,3 +24,19 @@ class TestCaseResponce(BaseModel):
     prompt: str
     model: str
     take: int
+
+
+class TestCaseJudgeCompareResult(BaseModel):
+    """Metadata for a judge-compare run, saved alongside the judge HTML output."""
+
+    case_key: str
+    activity_url: str
+    activity_desc: str
+    prompt: str
+    model_a: str
+    model_b: str
+    judge_model: str
+    take: int
+    answer_a: str
+    answer_b: str
+    judge_response: str

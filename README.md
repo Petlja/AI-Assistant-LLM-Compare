@@ -7,12 +7,12 @@ A CLI tool for comparing LLM responses to educational prompts and generating eva
 Create and activate a Python 3.13+ virtual environment, then install dependencies:
 
 ```bash
-poetry install
+uv sync
 ```
 
 ## Usage
 
-The CLI (`plcmp`) has three commands that form a pipeline:
+The CLI (`plcmp`) has four commands:
 
 ### 0. Define test cases
 
@@ -42,7 +42,15 @@ plcmp inference -m Qwen/Qwen3-14B
 plcmp inference -m Qwen/Qwen3-32B
 ```
 
-### 3. Survey
+### 3. Judge Compare
+
+Runs two models for each test case and sends both answers to a third model (judge) for comparison. Saves judge output as HTML and detailed JSON metadata to `eval/output/`.
+
+```bash
+plcmp judge_compare [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o-mini] [--model-b gpt-4o] [--judge-model gpt-4o]
+```
+
+### 4. Survey
 
 Scans `eval/output/` for HTML/JSON file pairs and generates a SurveyJS `survey.json` for evaluating the responses.
 
@@ -61,6 +69,7 @@ src/plct_llm_compare/
   prepare.py              # Prepare command (fetch lesson content)
   inference.py            # Inference command (run LLM)
   survey.py               # Survey command (generate SurveyJS JSON)
+  judge_compare.py        # Judge compare command (A vs B with judge model)
   models.py               # Pydantic data models
   config.py               # Configuration (API keys)
 ```
