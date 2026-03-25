@@ -58,6 +58,12 @@ Scans `eval/output/` for HTML/JSON file pairs and generates a SurveyJS `survey.j
 plcmp survey [-o eval/output]
 ```
 
+### 5. Analyze Survey Responses in Notebook
+
+Survey response analysis now lives in the notebook at `eval/survey-response-analysis.ipynb`. It loads `eval/survey-responces.json`, uses `eval/output/survey.json` for question labels, computes cross-case statistics with pandas, renders tables and charts, and exports the processed tables to `eval/notebook-output/`.
+
+Open the notebook and run it top to bottom.
+
 ## Project Structure
 
 ```

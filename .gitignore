@@ -131,6 +131,7 @@ dmypy.json
 
 ### This project specific
 eval/output
+eval/survey-respon*.json
 
 # uv
 uv.lock

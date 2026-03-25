@@ -13,6 +13,7 @@ classifiers = [
 dependencies = [
     "click",
     "openai",
+    "pandas",
     "pydantic",
     "pyyaml",
     "transformers",
