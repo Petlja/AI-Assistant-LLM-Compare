@@ -47,7 +47,7 @@ plcmp inference -m Qwen/Qwen3-32B
 Runs two models for each test case and sends both answers to a third model (judge) for comparison. Saves judge output as HTML and detailed JSON metadata to `eval/output/`.
 
 ```bash
-plcmp judge_compare [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o-mini] [--model-b gpt-4o] [--judge-model gpt-4o]
+plcmp judge_compare [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o-mini] [--model-b gpt-4o] [--judge-model gpt-5.2]
 ```
 
 ### 4. Survey

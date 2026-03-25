@@ -2,6 +2,7 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 import click
 from markdown_it import MarkdownIt
@@ -10,7 +11,11 @@ from plct_server.ai.client import AiClientFactory
 from plct_server.ai.model_conf import ModelProvider, MODEL_CONFIGS_LIST
 
 from .config import OPENAI_API_KEY, VLLM_URL
-from .models import TestCase, TestCaseJudgeCompareResult
+from .models import (
+    JudgeCompareStructuredResult,
+    TestCase,
+    TestCaseJudgeCompareResult,
+)
 
 
 def _get_model_config(model_name: str):
@@ -39,24 +44,47 @@ Answer A ({model_a}):
 Answer B ({model_b}):
 {answer_b}
 
-Return your evaluation in Markdown with exactly these sections:
+Return a structured evaluation.
 
-## Winner
-- Pick one: A, B, or Tie
+Work in this order:
+1. Identify the most important comparative rationale points.
+2. Give concrete improvement suggestions for each answer.
+3. Assign scores for both answers.
+4. Decide the winner last, after reviewing the full comparison.
 
-## Rationale
-- 3-6 bullet points comparing strengths and weaknesses
-
-## Scores
-- Correctness: A=<0-10>, B=<0-10>
-- Relevance: A=<0-10>, B=<0-10>
-- Clarity: A=<0-10>, B=<0-10>
-- Educational usefulness: A=<0-10>, B=<0-10>
-
-## Improvement Suggestions
-- 1-3 concrete suggestions for Answer A
-- 1-3 concrete suggestions for Answer B
+Do not reveal hidden chain-of-thought. Keep rationale concise and evidence-based.
 """
+
+
+def _make_strict_schema(schema: dict[str, Any]) -> dict[str, Any]:
+    """Recursively prepare schema for OpenAI strict mode:
+    - Add additionalProperties:false to all object schemas.
+    - Strip sibling keywords from $ref nodes (strict mode forbids them).
+    """
+    schema = dict(schema)
+    if "$ref" in schema:
+        # $ref must stand alone — drop all sibling keywords
+        return {"$ref": schema["$ref"]}
+    if schema.get("type") == "object":
+        schema["additionalProperties"] = False
+    for key in ("properties", "definitions", "$defs"):
+        if key in schema:
+            schema[key] = {k: _make_strict_schema(v) for k, v in schema[key].items()}
+    if "items" in schema:
+        schema["items"] = _make_strict_schema(schema["items"])
+    return schema
+
+
+def _judge_response_format() -> dict[str, Any]:
+    """Build the JSON schema response format for the judge output."""
+    return {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "judge_compare_result",
+            "strict": True,
+            "schema": _make_strict_schema(JudgeCompareStructuredResult.model_json_schema()),
+        },
+    }
 
 
 async def _generate_answer(
@@ -75,6 +103,63 @@ async def _generate_answer(
         temperature=temperature,
     )
     return completion.choices[0].message.content or ""
+
+
+async def _generate_structured_judgement(
+    *,
+    client_factory: AiClientFactory,
+    model_config,
+    messages: list[dict[str, str]],
+    temperature: float,
+) -> JudgeCompareStructuredResult:
+    """Generate a structured judge result using JSON-schema output."""
+    client = client_factory.get_client(model_config=model_config)
+    completion = await client.chat.completions.create(
+        model=model_config.name,
+        messages=messages,
+        max_completion_tokens=4000,
+        temperature=temperature,
+        response_format=_judge_response_format(),
+    )
+    content = completion.choices[0].message.content or ""
+    return JudgeCompareStructuredResult.model_validate_json(content)
+
+
+def _render_judge_result(judge_result: JudgeCompareStructuredResult) -> str:
+    """Render the structured judge result to markdown in the preferred order."""
+    lines = ["## Rationale"]
+    lines.extend(f"- {item}" for item in judge_result.rationale)
+
+    lines.extend(["", "## Improvement Suggestions", "### Answer A"])
+    lines.extend(f"- {item}" for item in judge_result.improvement_suggestions_a)
+
+    lines.extend(["", "### Answer B"])
+    lines.extend(f"- {item}" for item in judge_result.improvement_suggestions_b)
+
+    lines.extend([
+        "",
+        "## Scores",
+        (
+            f"- Correctness: A={judge_result.scores_a.correctness}, "
+            f"B={judge_result.scores_b.correctness}"
+        ),
+        (
+            f"- Relevance: A={judge_result.scores_a.relevance}, "
+            f"B={judge_result.scores_b.relevance}"
+        ),
+        (
+            f"- Clarity: A={judge_result.scores_a.clarity}, "
+            f"B={judge_result.scores_b.clarity}"
+        ),
+        (
+            f"- Educational usefulness: A={judge_result.scores_a.educational_usefulness}, "
+            f"B={judge_result.scores_b.educational_usefulness}"
+        ),
+        "",
+        "## Winner",
+        f"- {judge_result.winner}",
+    ])
+    return "\n".join(lines)
 
 
 async def do_judge_compare(
@@ -138,12 +223,13 @@ async def do_judge_compare(
                 {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
                 {"role": "user", "content": judge_user_prompt},
             ]
-            judge_response = await _generate_answer(
+            judge_result = await _generate_structured_judgement(
                 client_factory=client_factory,
                 model_config=judge_model_config,
                 messages=judge_messages,
                 temperature=0.2,
             )
+            judge_response = _render_judge_result(judge_result)
 
             judge_html = md.render(judge_response)
             model_a_safe = model_a.replace("/", "--")
@@ -167,6 +253,7 @@ async def do_judge_compare(
                 take=take,
                 answer_a=answer_a,
                 answer_b=answer_b,
+                judge_result=judge_result,
                 judge_response=judge_response,
             )
             meta_file = cases_path.parent / f"{base_name}.json"
