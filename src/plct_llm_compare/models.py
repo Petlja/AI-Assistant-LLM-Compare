@@ -69,6 +69,40 @@ class JudgeCategoryScores(BaseModel):
         description="Educational usefulness score from 0 to 10 based on how helpful the answer is for teaching or learning.",
     )
 
+    @staticmethod
+    def zeros() -> "JudgeCategoryScores":
+        return JudgeCategoryScores(correctness=0, relevance=0, clarity=0, educational_usefulness=0)
+
+    def __iadd__(self, other: "JudgeCategoryScores") -> "JudgeCategoryScores":
+        self.correctness += other.correctness
+        self.relevance += other.relevance
+        self.clarity += other.clarity
+        self.educational_usefulness += other.educational_usefulness
+        return self
+
+class JudgeCompareCumulativeScores(BaseModel):
+    scores_a: JudgeCategoryScores = Field(default_factory=JudgeCategoryScores.zeros)
+    scores_b: JudgeCategoryScores = Field(default_factory=JudgeCategoryScores.zeros)
+    winner_a_count: int = 0
+    winner_b_count: int = 0
+    no_winner_count: int = 0
+    count: int = 0
+
+    def update(self, judge_result: "JudgeCompareStructuredResult") -> None:
+        """Update cumulative scores and winner counts based on a new judge result."""
+        self.scores_a += judge_result.scores_a
+        self.scores_b += judge_result.scores_b
+
+        if judge_result.winner == "A":
+            self.winner_a_count += 1
+        elif judge_result.winner == "B":
+            self.winner_b_count += 1
+        else:
+            self.no_winner_count += 1
+
+        self.count += 1
+
+
 
 class JudgeCompareStructuredResult(BaseModel):
     """Structured judge evaluation for comparing two model answers."""

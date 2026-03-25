@@ -12,6 +12,7 @@ from plct_server.ai.model_conf import ModelProvider, MODEL_CONFIGS_LIST
 
 from .config import OPENAI_API_KEY, VLLM_URL
 from .models import (
+    JudgeCompareCumulativeScores,
     JudgeCompareStructuredResult,
     TestCase,
     TestCaseJudgeCompareResult,
@@ -190,6 +191,8 @@ async def do_judge_compare(
     click.echo(f"Loaded {len(test_cases)} test cases:")
     md = MarkdownIt()
 
+    judge_cumulative_scores = JudgeCompareCumulativeScores()
+
     for tc in test_cases:
         base_messages = [
             {"role": "system", "content": tc.system_message or ""},
@@ -229,6 +232,8 @@ async def do_judge_compare(
                 messages=judge_messages,
                 temperature=0.2,
             )
+            judge_cumulative_scores.update(judge_result)
+
             judge_response = _render_judge_result(judge_result)
 
             judge_html = md.render(judge_response)
@@ -260,3 +265,24 @@ async def do_judge_compare(
             meta_file.write_text(metadata.model_dump_json(indent=2), encoding="utf-8")
 
             click.echo(f"    Saved judge comparison to {html_file}")
+
+    n = judge_cumulative_scores.count
+    if n:
+        sa = judge_cumulative_scores.scores_a
+        sb = judge_cumulative_scores.scores_b
+        click.echo("")
+        click.echo(f"=== Average scores ({n} cases) ===")
+        click.echo(f"  A: {model_a}")
+        click.echo(f"  B: {model_b}")
+        click.echo("")
+        click.echo(f"  {'Correctness:':<24s} A={sa.correctness / n:<6.2f} B={sb.correctness / n:<6.2f}")
+        click.echo(f"  {'Relevance:':<24s} A={sa.relevance / n:<6.2f} B={sb.relevance / n:<6.2f}")
+        click.echo(f"  {'Clarity:':<24s} A={sa.clarity / n:<6.2f} B={sb.clarity / n:<6.2f}")
+        click.echo(f"  {'Educational usefulness:':<24s} A={sa.educational_usefulness / n:<6.2f} B={sb.educational_usefulness / n:<6.2f}")
+        avg_a = (sa.correctness + sa.relevance + sa.clarity + sa.educational_usefulness) / (4 * n)
+        avg_b = (sb.correctness + sb.relevance + sb.clarity + sb.educational_usefulness) / (4 * n)
+        click.echo(f"  {'Total average:':<24s} A={avg_a:<6.2f} B={avg_b:<6.2f}")
+        wa = judge_cumulative_scores.winner_a_count
+        wb = judge_cumulative_scores.winner_b_count
+        wt = judge_cumulative_scores.no_winner_count
+        click.echo(f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} Tie={wt / n:<6.0%}")
