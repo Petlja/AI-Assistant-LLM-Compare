@@ -43,7 +43,8 @@ async def do_inference(cases_fname: str, model:str) -> None:
             "role": "user",
             "content": tc.prompt
         }]
-        for take in [1]:  # For now, we only do one take per test case
+        # for take in [1,2,3]: # For judge_compare we may do multiple takes, but be careful to use seme list of takes in judge_compare
+        for take in [1]:  # For survey, we only do one take per test case
             click.echo(f"  - {tc.course_key}/{tc.activity_key} (take {take}):")
             client = client_factory.get_client(model_config=model_config)
             completion = await client.chat.completions.create(
@@ -60,6 +61,9 @@ async def do_inference(cases_fname: str, model:str) -> None:
             base_name = f"{tc.case_key}_{take}_{model_safe}"
             output_file = cases_path.parent / f"{base_name}.html"
             output_file.write_text(html_content, encoding="utf-8")
+            output_file_txt = cases_path.parent / f"{base_name}.txt"
+            output_file_txt.write_text(response, encoding="utf-8")
+
 
             metadata = TestCaseResponce(
                 case_key=tc.case_key,
