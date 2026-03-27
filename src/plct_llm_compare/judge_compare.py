@@ -30,9 +30,12 @@ def _get_model_config(model_name: str):
 
 
 JUDGE_SYSTEM_PROMPT = (
-    "You are an impartial evaluator. Compare two assistant answers to the same user prompt. "
+    "You are an impartial, blind evaluator. "
+    "You do not know which model produced which answer. "
+    "Compare two assistant answers to the same user prompt. "
     "Judge correctness, relevance, clarity, and educational usefulness. "
-    "Do not prefer verbosity by default."
+    "Length is NOT a quality indicator. A concise, correct answer is superior to a verbose answer with filler. "
+    "Penalize padding, unnecessary repetition, and filler content."
 )
 
 
@@ -46,11 +49,11 @@ JUDGE_USER_PROMPT_TEMPLATE = """You are given a system message (context), one us
 {prompt}
 </user_prompt>
 
-<answer_a model="{model_a}">
+<answer_a>
 {answer_a}
 </answer_a>
 
-<answer_b model="{model_b}">
+<answer_b>
 {answer_b}
 </answer_b>
 
@@ -64,30 +67,32 @@ Evaluate each answer against both the shared system message and the user prompt.
 Penalize answers that conflict with the shared system message, ignore important constraints, or miss the user's request.
 
 Work in this order:
-1. Identify the most important comparative rationale points, including how well each answer follows the shared system message/context.
-2. Give concrete improvement suggestions for each answer.
-3. Assign scores for both answers.
-4. Decide the winner last, after reviewing the full comparison.
+1. In the "analysis" field, write free-form comparative reasoning. Evaluate each answer's strengths and weaknesses. Focus on substance, not surface features. Do NOT let answer length influence your judgment.
+2. Assign scores for both answers based on your analysis.
+3. Decide the winner last, strictly based on the scores.
 
-Scoring rubric:
-- correctness: factual and instructional accuracy.
+Scoring rubric (use the full 0-10 range):
+- correctness (MOST IMPORTANT): factual and instructional accuracy. A clear but factually wrong answer must score low regardless of other qualities.
 - relevance: how directly the answer addresses the user prompt and respects the shared system message.
-- clarity: organization, readability, and precision.
+- clarity: organization, readability, and precision. Do not reward verbosity.
 - educational_usefulness: how helpful the answer is for learning or teaching.
 
+Score anchors:
+- 1-3: Poor — major errors, off-topic, confusing, or misleading.
+- 4-6: Adequate — partially addresses the prompt but has notable gaps or inaccuracies.
+- 7-8: Good — mostly correct and relevant with only minor issues.
+- 9-10: Excellent — fully correct, clear, insightful, no significant issues.
+
 Output requirements:
-- rationale must contain 3 to 6 concise comparative bullets.
-- improvement_suggestions_a must contain 1 to 3 concrete suggestions for Answer A.
-- improvement_suggestions_b must contain 1 to 3 concrete suggestions for Answer B.
-- scores_a and scores_b must each contain integer scores from 0 to 10 for correctness, relevance, clarity, and educational_usefulness.
-- winner must be exactly one of: A, B, Tie.
+- analysis: free-form comparative reasoning (a few paragraphs).
+- scores_a and scores_b: integer scores from 0 to 10 for correctness, relevance, clarity, and educational_usefulness.
+- winner: exactly one of: A, B, Tie.
 
 Winner rules:
-- Choose Tie when the answers are materially balanced overall.
+- Correctness outweighs all other criteria when deciding the winner.
+- Choose Tie only when the answers are materially balanced overall.
 - Do not force a winner based on small stylistic differences alone.
-- Ensure the winner is consistent with the scores and rationale.
-
-Do not reveal hidden chain-of-thought. Keep rationale concise and evidence-based.
+- Ensure the winner is consistent with the scores and analysis.
 """
 
 
@@ -178,14 +183,7 @@ async def _generate_structured_judgement(
 
 def _render_judge_result(judge_result: JudgeCompareStructuredResult) -> str:
     """Render the structured judge result to markdown in the preferred order."""
-    lines = ["## Rationale"]
-    lines.extend(f"- {item}" for item in judge_result.rationale)
-
-    lines.extend(["", "## Improvement Suggestions", "### Answer A"])
-    lines.extend(f"- {item}" for item in judge_result.improvement_suggestions_a)
-
-    lines.extend(["", "### Answer B"])
-    lines.extend(f"- {item}" for item in judge_result.improvement_suggestions_b)
+    lines = ["## Analysis", "", judge_result.analysis]
 
     lines.extend([
         "",
@@ -262,25 +260,55 @@ async def do_judge_compare(
             answer_a = answer_a_file.read_text(encoding="utf-8")
             answer_b = answer_b_file.read_text(encoding="utf-8")
 
-            judge_user_prompt = JUDGE_USER_PROMPT_TEMPLATE.format(
+            # --- Run AB ordering ---
+            judge_user_prompt_ab = JUDGE_USER_PROMPT_TEMPLATE.format(
                 prompt=tc.prompt,
                 system_message=tc.system_message or "(No system message provided)",
-                model_a=model_a,
                 answer_a=answer_a,
-                model_b=model_b,
                 answer_b=answer_b,
             )
-            judge_messages = [
+            messages_ab = [
                 {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
-                {"role": "user", "content": judge_user_prompt},
+                {"role": "user", "content": judge_user_prompt_ab},
             ]
-            judge_result = await _generate_structured_judgement(
-                client_factory=client_factory,
-                model_config=judge_model_config,
-                messages=judge_messages,
-                temperature=0.2,
+
+            # --- Run BA ordering (swapped) ---
+            judge_user_prompt_ba = JUDGE_USER_PROMPT_TEMPLATE.format(
+                prompt=tc.prompt,
+                system_message=tc.system_message or "(No system message provided)",
+                answer_a=answer_b,  # model_b in slot A
+                answer_b=answer_a,  # model_a in slot B
             )
-            judge_cumulative_scores.update(judge_result)
+            messages_ba = [
+                {"role": "system", "content": JUDGE_SYSTEM_PROMPT},
+                {"role": "user", "content": judge_user_prompt_ba},
+            ]
+
+            # Run both orderings in parallel
+            judge_result_ab, judge_result_ba = await asyncio.gather(
+                _generate_structured_judgement(
+                    client_factory=client_factory,
+                    model_config=judge_model_config,
+                    messages=messages_ab,
+                    temperature=0.2,
+                ),
+                _generate_structured_judgement(
+                    client_factory=client_factory,
+                    model_config=judge_model_config,
+                    messages=messages_ba,
+                    temperature=0.2,
+                ),
+            )
+
+            # Reconcile AB + BA into a single debiased result
+            judge_result, position_agreed = JudgeCompareStructuredResult.reconcile(
+                judge_result_ab, judge_result_ba
+            )
+            judge_cumulative_scores.update(judge_result, position_agreed)
+
+            agree_str = "AGREE" if position_agreed else "DISAGREE"
+            click.echo(f"    Position swap: {agree_str} "
+                       f"(AB={judge_result_ab.winner}, BA={judge_result_ba.winner})")
 
             judge_response = _render_judge_result(judge_result)
 
@@ -305,6 +333,9 @@ async def do_judge_compare(
                 answer_a=answer_a,
                 answer_b=answer_b,
                 judge_result=judge_result,
+                judge_result_ab=judge_result_ab,
+                judge_result_ba=judge_result_ba,
+                position_agreed=position_agreed,
                 judge_response=judge_response,
             )
             meta_file = cases_path.parent / f"{base_name}.json"
@@ -332,3 +363,5 @@ async def do_judge_compare(
         wb = judge_cumulative_scores.winner_b_count
         wt = judge_cumulative_scores.no_winner_count
         click.echo(f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} Tie={wt / n:<6.0%}")
+        pa = judge_cumulative_scores.position_agree_count
+        click.echo(f"  {'Position agreement:':<24s} {pa}/{n} ({pa / n:.0%})")
