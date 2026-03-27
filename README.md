@@ -28,7 +28,7 @@ plcmp prepare [-c eval/test-cases.yml]
 
 ### 2. Inference
 
-Runs each test case against a specified model (3 takes per case), saves HTML responses and JSON metadata to `eval/output/`.
+Run inference for the chosen model. Saves answer text, HTML responses and JSON metadata to `eval/output/`.
 
 ```bash
 plcmp inference [-c eval/output/test-cases-sysmsg.json] [-m gpt-4o]
@@ -44,7 +44,7 @@ plcmp inference -m Qwen/Qwen3-32B
 
 ### 3. Judge Compare
 
-Runs two models for each test case and sends both answers to a third model (judge) for comparison. Saves judge output as HTML and detailed JSON metadata to `eval/output/`.
+Reads the pre-generated answer files for both models and sends them to a third model (judge) for comparison. Saves judge output as HTML and detailed JSON metadata to `eval/output/`.
 
 ```bash
 plcmp judge_compare [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o-mini] [--model-b gpt-4o] [--judge-model gpt-5.2]
