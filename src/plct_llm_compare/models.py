@@ -42,56 +42,29 @@ class TestCaseJudgeCompareResult(BaseModel):
     answer_a: str
     answer_b: str
     judge_result: "JudgeCompareStructuredResult"
+    judge_result_ab: "JudgeCompareStructuredResult"
+    judge_result_ba: "JudgeCompareStructuredResult"
+    position_agreed: bool
     judge_response: str
 
 
-class JudgeCategoryScores(BaseModel):
-    """Scores assigned by the judge for a single answer."""
-
-    correctness: int = Field(
-        ge=0,
-        le=10,
-        description="Correctness score from 0 to 10 based on factual and instructional accuracy.",
-    )
-    relevance: int = Field(
-        ge=0,
-        le=10,
-        description="Relevance score from 0 to 10 based on how directly the answer addresses the prompt.",
-    )
-    clarity: int = Field(
-        ge=0,
-        le=10,
-        description="Clarity score from 0 to 10 based on organization, readability, and precision.",
-    )
-    educational_usefulness: int = Field(
-        ge=0,
-        le=10,
-        description="Educational usefulness score from 0 to 10 based on how helpful the answer is for teaching or learning.",
-    )
-
-    @staticmethod
-    def zeros() -> "JudgeCategoryScores":
-        return JudgeCategoryScores(correctness=0, relevance=0, clarity=0, educational_usefulness=0)
-
-    def __iadd__(self, other: "JudgeCategoryScores") -> "JudgeCategoryScores":
-        self.correctness += other.correctness
-        self.relevance += other.relevance
-        self.clarity += other.clarity
-        self.educational_usefulness += other.educational_usefulness
-        return self
-
 class JudgeCompareCumulativeScores(BaseModel):
-    scores_a: JudgeCategoryScores = Field(default_factory=JudgeCategoryScores.zeros)
-    scores_b: JudgeCategoryScores = Field(default_factory=JudgeCategoryScores.zeros)
+    score_a_sum: float = 0.0
+    score_b_sum: float = 0.0
     winner_a_count: int = 0
     winner_b_count: int = 0
     no_winner_count: int = 0
+    position_agree_count: int = 0
     count: int = 0
 
-    def update(self, judge_result: "JudgeCompareStructuredResult") -> None:
+    def update(
+        self,
+        judge_result: "JudgeCompareStructuredResult",
+        position_agreed: bool,
+    ) -> None:
         """Update cumulative scores and winner counts based on a new judge result."""
-        self.scores_a += judge_result.scores_a
-        self.scores_b += judge_result.scores_b
+        self.score_a_sum += judge_result.score_a
+        self.score_b_sum += judge_result.score_b
 
         if judge_result.winner == "A":
             self.winner_a_count += 1
@@ -100,30 +73,100 @@ class JudgeCompareCumulativeScores(BaseModel):
         else:
             self.no_winner_count += 1
 
-        self.count += 1
+        if position_agreed:
+            self.position_agree_count += 1
 
+        self.count += 1
 
 
 class JudgeCompareStructuredResult(BaseModel):
     """Structured judge evaluation for comparing two model answers."""
 
-    rationale: list[str] = Field(
-        min_length=3,
-        max_length=6,
-        description="Three to six concise comparison bullets describing important strengths and weaknesses across both answers.",
+    analysis: str = Field(
+        description=(
+            "Free-form comparative reasoning. For each answer, list specific "
+            "strengths and weaknesses covering: correctness, relevance to the "
+            "prompt and system message, completeness/depth, clarity, and "
+            "educational usefulness. Then state which answer is better overall "
+            "and why."
+        ),
     )
-    improvement_suggestions_a: list[str] = Field(
-        min_length=1,
-        max_length=3,
-        description="One to three concrete suggestions that would improve Answer A.",
+    score_a: int = Field(
+        ge=1,
+        le=100,
+        description="Overall quality score for Answer A on a 1-100 scale.",
     )
-    improvement_suggestions_b: list[str] = Field(
-        min_length=1,
-        max_length=3,
-        description="One to three concrete suggestions that would improve Answer B.",
+    score_b: int = Field(
+        ge=1,
+        le=100,
+        description="Overall quality score for Answer B on a 1-100 scale.",
     )
-    scores_a: JudgeCategoryScores
-    scores_b: JudgeCategoryScores
     winner: Literal["A", "B", "Tie"] = Field(
-        description="Final winner chosen only after comparing both answers and assigning scores. Use A, B, or Tie.",
+        description=(
+            "The better answer based on your analysis. "
+            "A, B, or Tie (only when genuinely indistinguishable)."
+        ),
     )
+
+    @staticmethod
+    def reconcile(
+        ab: "JudgeCompareStructuredResult",
+        ba: "JudgeCompareStructuredResult",
+    ) -> tuple["JudgeCompareStructuredResult", bool]:
+        """Reconcile AB and BA runs into a single result.
+
+        BA scores/winner are flipped so that A always refers to model_a.
+        Returns (reconciled_result, position_agreed).
+        """
+        ba_score_a = ba.score_b
+        ba_score_b = ba.score_a
+        ba_winner_flipped: Literal["A", "B", "Tie"]
+        if ba.winner == "A":
+            ba_winner_flipped = "B"
+        elif ba.winner == "B":
+            ba_winner_flipped = "A"
+        else:
+            ba_winner_flipped = "Tie"
+
+        avg_score_a = round((ab.score_a + ba_score_a) / 2)
+        avg_score_b = round((ab.score_b + ba_score_b) / 2)
+
+        ab_winner = ab.winner
+        position_agreed = ab_winner == ba_winner_flipped
+
+        if ab_winner == ba_winner_flipped:
+            final_winner = ab_winner
+        elif ab_winner == "Tie" or ba_winner_flipped == "Tie":
+            # One run was decisive, the other a tie — trust the decisive one
+            final_winner = ab_winner if ab_winner != "Tie" else ba_winner_flipped
+            position_agreed = False
+        else:
+            # Positions disagree — fall back to averaged scores
+            if avg_score_a > avg_score_b:
+                final_winner = "A"
+            elif avg_score_b > avg_score_a:
+                final_winner = "B"
+            else:
+                final_winner = "Tie"
+            position_agreed = False
+
+        combined_analysis = (
+            f"=== Run AB ===\n{ab.analysis}\n\n"
+            f"=== Run BA (swapped) ===\n{ba.analysis}\n\n"
+            f"=== Reconciliation ===\n"
+            f"AB winner: {ab.winner} (A={ab.score_a}, B={ab.score_b}), "
+            f"BA winner (flipped): {ba_winner_flipped} (A={ba_score_a}, B={ba_score_b})\n"
+            f"Averaged scores: A={avg_score_a}, B={avg_score_b}\n"
+            f"Position agreement: {'Yes' if position_agreed else 'No'}\n"
+            f"Final winner: {final_winner}"
+        )
+
+        return (
+            JudgeCompareStructuredResult(
+                analysis=combined_analysis,
+                score_a=avg_score_a,
+                score_b=avg_score_b,
+                winner=final_winner,
+            ),
+            position_agreed,
+        )
