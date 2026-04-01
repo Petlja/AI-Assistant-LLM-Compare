@@ -329,9 +329,14 @@ print(f"Open-text rows: {len(open_text)}")
 # Display the key tables and build a pivoted view for the main numeric ratings so models can be compared side by side.
 
 # %%
-respondent_labels = sorted(answers_df["label"].dropna().unique())
+respondent_info = (
+    answers_df.loc[answers_df["label"].notna(), ["label", "submitted_at"]]
+    .drop_duplicates(subset="label")
+    .sort_values("submitted_at")
+    .reset_index(drop=True)
+)
 print("Answer labels")
-display(pd.DataFrame({"label": respondent_labels}))
+display(respondent_info)
 
 display(question_completion[["question_id", "question_title", "take", "model", "answer_rows", "respondent_count", "case_count"]])
 
