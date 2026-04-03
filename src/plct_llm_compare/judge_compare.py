@@ -328,15 +328,31 @@ async def do_judge_compare(
     if n:
         avg_a = judge_cumulative_scores.score_a_sum / n
         avg_b = judge_cumulative_scores.score_b_sum / n
-        click.echo("")
-        click.echo(f"=== Results ({n} cases) ===")
-        click.echo(f"  A: {model_a}")
-        click.echo(f"  B: {model_b}")
-        click.echo("")
-        click.echo(f"  {'Avg quality score:':<24s} A={avg_a:<6.1f}/100  B={avg_b:<6.1f}/100")
+        summary_lines = [
+            "",
+            f"=== Results ({n} cases) ===",
+            f"  A: {model_a}",
+            f"  B: {model_b}",
+            "",
+            f"  {'Avg quality score:':<24s} A={avg_a:<6.1f}/100  B={avg_b:<6.1f}/100",
+        ]
         wa = judge_cumulative_scores.winner_a_count
         wb = judge_cumulative_scores.winner_b_count
         wt = judge_cumulative_scores.no_winner_count
-        click.echo(f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} Tie={wt / n:<6.0%}")
+        summary_lines.append(
+            f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} Tie={wt / n:<6.0%}"
+        )
         pa = judge_cumulative_scores.position_agree_count
-        click.echo(f"  {'Position agreement:':<24s} {pa}/{n} ({pa / n:.0%})")
+        summary_lines.append(f"  {'Position agreement:':<24s} {pa}/{n} ({pa / n:.0%})")
+
+        for line in summary_lines:
+            click.echo(line)
+
+        judge_model_safe = judge_model.replace("/", "--")
+        test_cases_name = cases_path.stem 
+        summary_file = (
+            cases_path.parent
+            / f"summary_{model_a_safe}_vs_{model_b_safe}_judge_{judge_model_safe}_{test_cases_name}.txt"
+        )
+        summary_file.write_text("\n".join(summary_lines).strip() + "\n", encoding="utf-8")
+        click.echo(f"  Saved summary to {summary_file}")

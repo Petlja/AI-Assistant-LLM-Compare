@@ -136,18 +136,9 @@ class JudgeCompareStructuredResult(BaseModel):
 
         if ab_winner == ba_winner_flipped:
             final_winner = ab_winner
-        elif ab_winner == "Tie" or ba_winner_flipped == "Tie":
-            # One run was decisive, the other a tie — trust the decisive one
-            final_winner = ab_winner if ab_winner != "Tie" else ba_winner_flipped
-            position_agreed = False
         else:
-            # Positions disagree — fall back to averaged scores
-            if avg_score_a > avg_score_b:
-                final_winner = "A"
-            elif avg_score_b > avg_score_a:
-                final_winner = "B"
-            else:
-                final_winner = "Tie"
+            # Any position-swap disagreement is treated as unstable, therefore Tie.
+            final_winner = "Tie"
             position_agreed = False
 
         combined_analysis = (
