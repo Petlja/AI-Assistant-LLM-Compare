@@ -8,6 +8,9 @@
 # - numeric ratings such as `q1`
 # - categorical comparison answers such as `q4`
 # - open-ended responses such as `q2`, `q3`, and `q5`
+#
+# Generic helpers (parsing, aggregation, GPT-based open-question analysis) live in
+# `plct_llm_compare.analytic` so this notebook stays small and easy to tweak ad-hoc.
 
 # %% [markdown]
 # ## 1. Load Input Data
@@ -15,20 +18,33 @@
 # Import the required libraries and locate the response file in a way that works whether the notebook is started from the repository root or the `eval` directory.
 
 # %%
-from pathlib import Path
 import json
+from pathlib import Path
 
 import pandas as pd
 from IPython.display import display
+from pydantic import ValidationError
 
+from plct_llm_compare.analytic import (
+    DEFAULT_OPEN_QUESTION_ANALYSIS_MODEL,
+    analyze_open_question_group,
+    analyze_open_question_group_per_model,
+    apply_survey_labels,
+    build_model_alias_map,
+    build_open_question_analysis_markdown,
+    build_open_question_theme_frame,
+    build_survey_metadata,
+    collect_open_text,
+    find_repo_root,
+    flatten_answers,
+    get_openai_client,
+    get_question_choice_labels,
+    safe_file_token,
+    summarize_choices,
+    summarize_numeric,
+)
 
-def find_repo_root(start: Path | None = None) -> Path:
-    current = (start or Path.cwd()).resolve()
-    for candidate in [current, *current.parents]:
-        if (candidate / "pyproject.toml").exists():
-            return candidate
-    return current
-
+OPEN_QUESTION_ANALYSIS_MODEL = DEFAULT_OPEN_QUESTION_ANALYSIS_MODEL
 
 repo_root = find_repo_root()
 response_candidates = [
@@ -60,251 +76,21 @@ print(f"Loaded survey definition from {survey_path}")
 pd.set_option("display.max_colwidth", 160)
 pd.set_option("display.max_rows", 200)
 
-# %% [markdown]
-# ## 2. Define Calculation Logic
-#
-# Define helper functions that parse the survey key format, skip empty answers, and flatten matrix and text answers into a row-oriented structure for pandas.
-
-# %%
-LABEL_TRANSLATIONS = {
-    "Koji LLM je dao bolji odgovor u pogledu sledećeg?": "Which LLM gave the better answer for the following?",
-    "U kojoj meri se slažeš sa sledećim tvrđenjima": "To what extent do you agree with the following statements?",
-    "Vaš ukupan utisak o jeziku odgovora": "Your overall impression of the response language",
-    "Šta smatrate da je bolje ili lošije u odgovorima jednog ili drugog LLM-a?": "What do you consider better or worse in one LLM's answers versus the other's?",
-    "Šta uočavate da bi trebalo ispravnije jezički formulisati?": "What do you notice should be phrased more correctly linguistically?",
-    "Bez izmena ili nakon menjih korekcija, jezik odgovora je dovoljno dobar": "With no changes or after minor corrections, the response language is good enough",
-    "Izbor termina": "Choice of terms",
-    "Izbor termina u odgovoru je adekvatan": "The choice of terms in the response is appropriate",
-    "Korisnost za nastavnu praksu": "Usefulness for teaching practice",
-    "Odgovor je koristan za nastavnu praksu": "The response is useful for teaching practice",
-    "Prirodnost srpskog jezika": "Naturalness of Serbian language",
-    "Srpski jezik u odgovoru zvuči prirodno": "The Serbian language in the response sounds natural",
-    "Ukupan utisak": "Overall impression",
-    "Bolji je Qwen3-14B": "Qwen3-14B is better",
-    "Bolji je gpt-5.2": "gpt-5.2 is better",
-    "Ne slažem se": "Disagree",
-    "Nema velike razlike": "No major difference",
-    "Neodlučan sam": "Undecided",
-    "Potpuno se slažem": "Strongly agree",
-    "Slažem se": "Agree",
-    "Uopšte se ne slažem": "Strongly disagree",
-}
-
-
-def translate_label(text: object) -> object:
-    if text is None:
-        return text
-    return LABEL_TRANSLATIONS.get(str(text), str(text))
-
-
-
-def parse_question_key(question_key: str) -> dict[str, object]:
-    prefix, question_id = question_key.rsplit("__", 1)
-    case_key, take_text, model = prefix.split("__", 2)
-    return {
-        "case_key": case_key,
-        "take": int(take_text),
-        "model": model,
-        "question_id": question_id,
-    }
-
-
-
-def is_empty_value(value) -> bool:
-    if value is None:
-        return True
-    if isinstance(value, str):
-        return value.strip() == ""
-    if isinstance(value, dict):
-        return not value
-    return False
-
-
-
-def normalize_choice_label(choice_value: str, choice_text: str) -> str:
-    if choice_text in {"Bolji je LLM A", "Bolji je LLM B"}:
-        return translate_label(f"Bolji je {choice_value}")
-    return str(translate_label(choice_text))
-
-
-
-def build_survey_metadata(survey: dict) -> tuple[dict[str, str], dict[tuple[str, str], str], dict[tuple[str, str], str]]:
-    question_title_map: dict[str, str] = {}
-    row_label_map: dict[tuple[str, str], str] = {}
-    choice_label_map: dict[tuple[str, str], str] = {}
-
-    for page in survey.get("pages", []):
-        for element in page.get("elements", []):
-            element_name = element.get("name")
-            if not element_name or "__q" not in element_name:
-                continue
-
-            parsed = parse_question_key(element_name)
-            question_id = parsed["question_id"]
-            question_title_map.setdefault(question_id, str(translate_label(element.get("title", question_id))))
-
-            for row in element.get("rows", []):
-                row_value = str(row.get("value", ""))
-                row_label_map.setdefault((question_id, row_value), str(translate_label(row.get("text", row_value))))
-
-            for column in element.get("columns", []):
-                column_value = str(column.get("value", ""))
-                column_text = str(column.get("text", column_value))
-                choice_label_map.setdefault(
-                    (question_id, column_value),
-                    normalize_choice_label(column_value, column_text),
-                )
-
-    return question_title_map, row_label_map, choice_label_map
-
-
-question_title_map, row_label_map, choice_label_map = build_survey_metadata(survey_definition)
-
-
-
-def apply_survey_labels(frame: pd.DataFrame) -> pd.DataFrame:
-    if frame.empty:
-        return frame.copy()
-
-    labeled = frame.copy()
-    labeled["question_title"] = labeled["question_id"].map(question_title_map).fillna(labeled["question_id"].map(translate_label)).fillna(labeled["question_id"])
-
-    if "row_key" in labeled.columns:
-        labeled["row_label"] = labeled.apply(
-            lambda row: row_label_map.get((row["question_id"], str(row["row_key"])), translate_label(row.get("row_key"))),
-            axis=1,
-        )
-
-    if "choice" in labeled.columns:
-        labeled["choice_label"] = labeled.apply(
-            lambda row: choice_label_map.get((row["question_id"], str(row["choice"])), translate_label(row.get("choice"))),
-            axis=1,
-        )
-
-    return labeled
-
-
-
-def flatten_answers(response_entries: list[dict]) -> pd.DataFrame:
-    rows: list[dict] = []
-    for entry in response_entries:
-        label = entry.get("label")
-        submitted_at = entry.get("submitted_at")
-        for question_key, value in entry.get("answers", {}).items():
-            parsed = parse_question_key(question_key)
-            if is_empty_value(value):
-                continue
-
-            if isinstance(value, dict):
-                for row_key, row_value in value.items():
-                    if is_empty_value(row_value):
-                        continue
-                    rows.append(
-                        {
-                            **parsed,
-                            "question_key": question_key,
-                            "label": label,
-                            "submitted_at": submitted_at,
-                            "row_key": row_key,
-                            "value": row_value,
-                        }
-                    )
-            else:
-                rows.append(
-                    {
-                        **parsed,
-                        "question_key": question_key,
-                        "label": label,
-                        "submitted_at": submitted_at,
-                        "row_key": None,
-                        "value": value,
-                    }
-                )
-
-    frame = pd.DataFrame(rows)
-    if frame.empty:
-        return frame
-
-    frame["numeric_value"] = pd.to_numeric(frame["value"], errors="coerce")
-    frame["is_numeric"] = frame["numeric_value"].notna()
-    return frame
-
-
-
-def summarize_numeric(frame: pd.DataFrame) -> pd.DataFrame:
-    numeric = frame[frame["is_numeric"]].copy()
-    if numeric.empty:
-        return pd.DataFrame(columns=["question_id", "take", "model", "row_key", "response_count", "case_count", "mean", "min", "max"])
-
-    summary = (
-        numeric.groupby(["question_id", "take", "model", "row_key"], dropna=False)
-        .agg(
-            response_count=("numeric_value", "count"),
-            case_count=("case_key", "nunique"),
-            mean=("numeric_value", "mean"),
-            min=("numeric_value", "min"),
-            max=("numeric_value", "max"),
-        )
-        .reset_index()
-        .sort_values(["question_id", "take", "model", "row_key"], na_position="last")
-    )
-    summary["mean"] = summary["mean"].round(3)
-    return summary
-
-
-
-def summarize_choices(frame: pd.DataFrame) -> pd.DataFrame:
-    choices = frame[
-        (~frame["is_numeric"])
-        & frame["row_key"].notna()
-        & frame["value"].map(lambda value: isinstance(value, str))
-    ].copy()
-    if choices.empty:
-        return pd.DataFrame(columns=["question_id", "take", "model", "row_key", "choice", "count", "share", "case_count"])
-
-    choices["choice"] = choices["value"].str.strip()
-    summary = (
-        choices.groupby(["question_id", "take", "model", "row_key", "choice"], dropna=False)
-        .agg(
-            count=("label", "count"),
-            case_count=("case_key", "nunique"),
-        )
-        .reset_index()
-        .sort_values(["question_id", "take", "model", "row_key", "choice"], na_position="last")
-    )
-    totals = summary.groupby(["question_id", "take", "model", "row_key"], dropna=False)["count"].transform("sum")
-    summary["share"] = (summary["count"] / totals).round(3)
-    return summary
-
-
-
-def collect_open_text(frame: pd.DataFrame) -> pd.DataFrame:
-    text = frame[
-        (~frame["is_numeric"])
-        & frame["row_key"].isna()
-        & frame["value"].map(lambda value: isinstance(value, str))
-    ].copy()
-    if text.empty:
-        return pd.DataFrame(columns=["question_id", "take", "model", "case_key", "label", "submitted_at", "text"])
-
-    text["text"] = text["value"].str.strip()
-    text = text[text["text"] != ""]
-    return text[["question_id", "take", "model", "case_key", "label", "submitted_at", "text"]].sort_values(
-        ["question_id", "take", "model", "case_key", "label"],
-        na_position="last",
-    )
+survey_metadata = build_survey_metadata(survey_definition)
+model_alias_map = build_model_alias_map(survey_definition)
+print(f"Model alias map: {model_alias_map}")
 
 # %% [markdown]
-# ## 3. Run Core Calculations
+# ## 2. Run Core Calculations
 #
 # Create the flattened answer table and derive the main cross-case result tables.
 
 # %%
-answers_df = apply_survey_labels(flatten_answers(responses))
+answers_df = apply_survey_labels(flatten_answers(responses), survey_metadata)
 answers_df = answers_df[answers_df["label"].str.match(r"^s\d+$", na=False)]
-numeric_stats = apply_survey_labels(summarize_numeric(answers_df))
-choice_stats = apply_survey_labels(summarize_choices(answers_df))
-open_text = apply_survey_labels(collect_open_text(answers_df))
+numeric_stats = apply_survey_labels(summarize_numeric(answers_df), survey_metadata)
+choice_stats = apply_survey_labels(summarize_choices(answers_df), survey_metadata)
+open_text = apply_survey_labels(collect_open_text(answers_df), survey_metadata)
 
 question_completion = (
     answers_df.groupby(["question_id", "take", "model"], dropna=False)
@@ -316,7 +102,11 @@ question_completion = (
     .reset_index()
     .sort_values(["question_id", "take", "model"], na_position="last")
 )
-question_completion["question_title"] = question_completion["question_id"].map(question_title_map).fillna(question_completion["question_id"])
+question_completion["question_title"] = (
+    question_completion["question_id"]
+    .map(survey_metadata.question_titles)
+    .fillna(question_completion["question_id"])
+)
 
 print(f"Flattened rows: {len(answers_df)}")
 print(f"Numeric summary rows: {len(numeric_stats)}")
@@ -324,7 +114,7 @@ print(f"Choice summary rows: {len(choice_stats)}")
 print(f"Open-text rows: {len(open_text)}")
 
 # %% [markdown]
-# ## 4. Format Tabular Results
+# ## 3. Format Tabular Results
 #
 # Display the key tables and build a pivoted view for the main numeric ratings so models can be compared side by side.
 
@@ -337,6 +127,7 @@ respondent_info = (
 )
 print("Answer labels")
 display(respondent_info)
+# display(respondent_info.sort_values("label"))
 
 display(question_completion[["question_id", "question_title", "take", "model", "answer_rows", "respondent_count", "case_count"]])
 
@@ -348,35 +139,213 @@ numeric_stats_wide = pd.pivot_table(
     aggfunc="first",
 )
 
+print("Open-ended question responses")
+if open_text.empty:
+    print("No open-ended responses found.")
+else:
+    results_dir = repo_root / "eval" / "results"
+    results_dir.mkdir(parents=True, exist_ok=True)
+    open_text_tables = open_text.rename(columns={"label": "respondent", "text": "answer_text"})
+    open_question_exports: list[tuple[str, str, int, pd.DataFrame]] = []
+    for (question_id, question_title, take), question_frame in open_text_tables.groupby(
+        ["question_id", "question_title", "take"],
+        sort=False,
+        dropna=False,
+    ):
+        export_frame = (
+            question_frame[["case_key", "model", "respondent", "answer_text"]]
+            .sort_values(["case_key", "respondent", "model"], na_position="last")
+            .reset_index(drop=True)
+        )
+        export_path = results_dir / f"open-question-{question_id}-take-{take}.csv"
+        export_frame.to_csv(export_path, index=False, encoding="utf-8")
+        open_question_exports.append((question_id, question_title, take, export_frame))
+        print(f"{question_id} | {question_title} | take {take}")
+        print(f"Exported {export_path}")
+        display(export_frame)
+
+    print(f"Open-question GPT analysis model: {OPEN_QUESTION_ANALYSIS_MODEL}")
+    openai_client = get_openai_client()
+    classified_by_question: dict[tuple[str, str, int], tuple[bool, pd.DataFrame]] = {}
+    if openai_client is None:
+        print("Skipping GPT-5.4 analysis because OPENAI_API_KEY is not set.")
+    else:
+        analysis_model_safe = safe_file_token(OPEN_QUESTION_ANALYSIS_MODEL)
+        gpt_cache_dir = results_dir / "gpt-cache"
+        gpt_cache_dir.mkdir(parents=True, exist_ok=True)
+        for question_id, question_title, take, export_frame in open_question_exports:
+            print(f"Analyzing {question_id} | {question_title} | take {take}")
+            per_model_question = question_id == "q5"
+            try:
+                if per_model_question:
+                    analysis_result, classified_frame = analyze_open_question_group_per_model(
+                        openai_client,
+                        question_id=question_id,
+                        question_title=question_title,
+                        take=take,
+                        export_frame=export_frame,
+                        model_alias_map=model_alias_map,
+                        known_models=sorted(set(model_alias_map.values())) or None,
+                        analysis_model=OPEN_QUESTION_ANALYSIS_MODEL,
+                        cache_dir=gpt_cache_dir,
+                    )
+                else:
+                    analysis_result, classified_frame = analyze_open_question_group(
+                        openai_client,
+                        question_id=question_id,
+                        question_title=question_title,
+                        take=take,
+                        export_frame=export_frame,
+                        analysis_model=OPEN_QUESTION_ANALYSIS_MODEL,
+                        cache_dir=gpt_cache_dir,
+                    )
+            except (RuntimeError, ValidationError) as exc:
+                print(f"GPT-5.4 analysis failed for {question_id} take {take}: {exc}")
+                continue
+
+            summary_path = results_dir / (
+                f"open-question-{question_id}-take-{take}-{analysis_model_safe}-analysis.md"
+            )
+            classification_path = results_dir / (
+                f"open-question-{question_id}-take-{take}-{analysis_model_safe}-classification.csv"
+            )
+            summary_path.write_text(
+                build_open_question_analysis_markdown(
+                    question_id=question_id,
+                    question_title=question_title,
+                    take=take,
+                    analysis_result=analysis_result,
+                    analysis_model=OPEN_QUESTION_ANALYSIS_MODEL,
+                ),
+                encoding="utf-8",
+            )
+            classified_frame.to_csv(classification_path, index=False, encoding="utf-8")
+
+            print(analysis_result.overall_summary)
+            print(f"Saved GPT-5.4 summary to {summary_path}")
+            print(f"Saved GPT-5.4 classifications to {classification_path}")
+            display(build_open_question_theme_frame(analysis_result))
+            display_columns = [
+                "case_key",
+                "model",
+                "respondent",
+                "answer_text",
+                "strength_labels",
+                "weakness_labels",
+                "classification_rationale",
+            ]
+            if per_model_question:
+                display_columns.insert(2, "model_discussed")
+            display(classified_frame[display_columns])
+            classified_by_question[(question_id, question_title, take)] = (
+                per_model_question,
+                classified_frame,
+            )
+
 # %% [markdown]
-# ## 5. Create Result Visualizations
+# ## 3b. Category Statistics for Open Questions
 #
-# Use simple bar charts to compare mean numeric scores and the distribution of categorical comparison answers across all cases.
+# For each open question (q2, q3, q5) tabulate how often each GPT-identified
+# strength / weakness label appears across answers, and plot the distribution.
+# For q5 the counts are split per model being discussed.
 
 # %%
 import matplotlib.pyplot as plt
 
 
-def get_question_choice_labels(question_id: str) -> list[str]:
-    labels: list[str] = []
-    for page in survey_definition.get("pages", []):
-        for element in page.get("elements", []):
-            element_name = element.get("name")
-            if not element_name or "__q" not in element_name:
-                continue
-            parsed = parse_question_key(element_name)
-            if parsed["question_id"] != question_id:
-                continue
-            for column in element.get("columns", []):
-                column_value = str(column.get("value", ""))
-                column_text = str(column.get("text", column_value))
-                normalized = normalize_choice_label(column_value, column_text)
-                if normalized not in labels:
-                    labels.append(normalized)
-            if labels:
-                return labels
-    return labels
+def _explode_labels(frame: pd.DataFrame, column: str, extra_keys: list[str]) -> pd.DataFrame:
+    if frame.empty or column not in frame.columns:
+        return pd.DataFrame(columns=[*extra_keys, "label"])
+    working = frame[[*extra_keys, column]].copy()
+    working[column] = working[column].fillna("").astype(str)
+    working["label"] = working[column].str.split(";")
+    working = working.explode("label")
+    working["label"] = working["label"].str.strip()
+    working = working[working["label"] != ""]
+    return working[[*extra_keys, "label"]]
 
+
+if "classified_by_question" in globals() and classified_by_question:
+    for (question_id, question_title, take), (is_per_model, classified_frame) in (
+        classified_by_question.items()
+    ):
+        print(f"Category statistics for {question_id} | {question_title}")
+        if is_per_model:
+            model_column = "model_discussed"
+        else:
+            model_column = "model"
+        group_keys = [model_column] if model_column in classified_frame.columns else []
+
+        for theme_type, labels_column in (
+            ("strength", "strength_labels"),
+            ("weakness", "weakness_labels"),
+        ):
+            exploded = _explode_labels(classified_frame, labels_column, group_keys)
+            if exploded.empty:
+                print(f"  No {theme_type} labels for {question_id}.")
+                continue
+
+            if group_keys:
+                stats = (
+                    exploded.groupby([model_column, "label"], dropna=False)
+                    .size()
+                    .reset_index(name="count")
+                )
+                totals_per_model = (
+                    stats.groupby(model_column)["count"].transform("sum")
+                )
+                stats["share"] = (stats["count"] / totals_per_model).round(3)
+                stats = stats.sort_values(
+                    [model_column, "count"], ascending=[True, False]
+                )
+                print(f"{theme_type.title()}s for {question_id} (per model)")
+                display(stats)
+
+                pivot = stats.pivot(
+                    index="label", columns=model_column, values="count"
+                ).fillna(0)
+                pivot = pivot.loc[pivot.sum(axis=1).sort_values(ascending=False).index]
+                ax = pivot.plot(
+                    kind="bar",
+                    figsize=(11, 5),
+                    title=f"{question_id} — {theme_type} label counts per model",
+                )
+                ax.set_xlabel("")
+                ax.set_ylabel("Count")
+                ax.legend(title="Model")
+                plt.xticks(rotation=25, ha="right")
+                plt.tight_layout()
+                plt.show()
+            else:
+                stats = (
+                    exploded.groupby("label", dropna=False)
+                    .size()
+                    .reset_index(name="count")
+                    .sort_values("count", ascending=False)
+                )
+                total = int(stats["count"].sum())
+                stats["share"] = (stats["count"] / total).round(3) if total else 0.0
+                print(f"{theme_type.title()}s for {question_id}")
+                display(stats)
+
+                ax = stats.set_index("label")["count"].plot(
+                    kind="bar",
+                    figsize=(10, 4),
+                    title=f"{question_id} — {theme_type} label counts",
+                )
+                ax.set_xlabel("")
+                ax.set_ylabel("Count")
+                plt.xticks(rotation=25, ha="right")
+                plt.tight_layout()
+                plt.show()
+
+# %% [markdown]
+# ## 4. Create Result Visualizations
+#
+# Use simple bar charts to compare mean numeric scores and the distribution of categorical comparison answers across all cases.
+
+# %%
+import matplotlib.pyplot as plt
 
 q1_means = numeric_stats[numeric_stats["question_id"] == "q1"].copy()
 if not q1_means.empty:
@@ -393,7 +362,7 @@ if not q1_means.empty:
 q4_shares = choice_stats[choice_stats["question_id"] == "q4"].copy()
 if not q4_shares.empty:
     q4_title = q4_shares["question_title"].iloc[0]
-    expected_q4_labels = get_question_choice_labels("q4")
+    expected_q4_labels = get_question_choice_labels(survey_definition, "q4")
     for _, row_frame in q4_shares.groupby("row_label", sort=False):
         row_label = row_frame["row_label"].iloc[0]
         plot_data = row_frame.set_index("choice_label")["share"]
