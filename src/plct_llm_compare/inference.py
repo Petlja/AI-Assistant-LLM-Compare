@@ -12,7 +12,7 @@ from .models import TestCaseResponce, TestCase
 from .config import OPENAI_API_KEY, VLLM_URL, PLCT_AI_CTX_URL
 
 
-async def do_inference(cases_fname: str, model:str) -> None:
+async def do_inference(cases_fname: str, model: str, take: int = 1) -> None:
     cases_path = Path(cases_fname)
     with cases_path.open("r", encoding="utf-8") as f:
         data = json.load(f)
@@ -20,11 +20,11 @@ async def do_inference(cases_fname: str, model:str) -> None:
     test_cases = TypeAdapter(list[TestCase]).validate_python(data)
 
     client_factory = AiClientFactory(
-        default_provider = ModelProvider.OPENAI,
-        openai_api_key = OPENAI_API_KEY,
-        azure_api_key = None,
-        vllm_api_key= "EMPTY",
-        vllm_url = VLLM_URL
+        default_provider=ModelProvider.OPENAI,
+        openai_api_key=OPENAI_API_KEY,
+        azure_api_key=None,
+        vllm_api_key="EMPTY",
+        vllm_url=VLLM_URL,
     )
 
     ai_engine = AiEngine(ai_ctx_url=PLCT_AI_CTX_URL, client_factory=client_factory)
@@ -43,40 +43,38 @@ async def do_inference(cases_fname: str, model:str) -> None:
             "role": "user",
             "content": tc.prompt
         }]
-        # for take in [1,2,3]: # For judge_compare we may do multiple takes, but be careful to use seme list of takes in judge_compare
-        for take in [1]:  # For survey, we only do one take per test case
-            click.echo(f"  - {tc.course_key}/{tc.activity_key} (take {take}):")
-            client = client_factory.get_client(model_config=model_config)
-            completion = await client.chat.completions.create(
-                model=model_config.name,
-                messages=messages,
-                max_completion_tokens=8000,
-                temperature=0.5
-            )
+        click.echo(f"  - {tc.course_key}/{tc.activity_key} (take {take}):")
+        client = client_factory.get_client(model_config=model_config)
+        completion = await client.chat.completions.create(
+            model=model_config.name,
+            messages=messages,
+            max_completion_tokens=8000,
+            temperature=0.5,
+        )
 
-            response = completion.choices[0].message.content
-            md = MarkdownIt()
-            html_content = md.render(response)
-            model_safe = model.replace("/", "--")
-            base_name = f"{tc.case_key}_{take}_{model_safe}"
-            output_file = cases_path.parent / f"{base_name}.html"
-            output_file.write_text(html_content, encoding="utf-8")
-            output_file_txt = cases_path.parent / f"{base_name}.txt"
-            output_file_txt.write_text(response, encoding="utf-8")
+        response = completion.choices[0].message.content
+        md = MarkdownIt()
+        html_content = md.render(response)
+        model_safe = model.replace("/", "--")
+        base_name = f"{tc.case_key}_{take}_{model_safe}"
+        output_file = cases_path.parent / f"{base_name}.html"
+        output_file.write_text(html_content, encoding="utf-8")
+        output_file_txt = cases_path.parent / f"{base_name}.txt"
+        output_file_txt.write_text(response, encoding="utf-8")
 
 
-            metadata = TestCaseResponce(
-                case_key=tc.case_key,
-                activity_url=tc.activity_url,
-                activity_desc=tc.activity_desc,
-                prompt=tc.prompt,
-                model=model,
-                take=take,
-            )
-            meta_file = cases_path.parent / f"{base_name}.json"
-            meta_file.write_text(metadata.model_dump_json(indent=2), encoding="utf-8")
+        metadata = TestCaseResponce(
+            case_key=tc.case_key,
+            activity_url=tc.activity_url,
+            activity_desc=tc.activity_desc,
+            prompt=tc.prompt,
+            model=model,
+            take=take,
+        )
+        meta_file = cases_path.parent / f"{base_name}.json"
+        meta_file.write_text(metadata.model_dump_json(indent=2), encoding="utf-8")
 
-            click.echo(f"    Saved response to {output_file}")
+        click.echo(f"    Saved response to {output_file}")
 
 
 

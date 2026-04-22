@@ -38,6 +38,7 @@ Examples:
 
 ```bash
 plcmp inference -m gpt-4o
+plcmp inference -m gpt-4o --take 2
 plcmp inference -m Qwen/Qwen3-14B
 plcmp inference -m Qwen/Qwen3-32B
 ```
@@ -47,7 +48,29 @@ plcmp inference -m Qwen/Qwen3-32B
 Reads the pre-generated answer files for both models and sends them to a third model (judge) for comparison. Saves judge output as HTML and detailed JSON metadata to `eval/output/`.
 
 ```bash
-plcmp judge_compare [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o-mini] [--model-b gpt-4o] [--judge-model gpt-5.2]
+plcmp judge_compare [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o-mini] [--model-b gpt-4o] [--model-a-take 1] [--model-b-take 1] [--judge-model gpt-5.2]
+```
+
+Examples:
+
+```bash
+plcmp judge_compare --model-a gpt-4o-mini --model-b gpt-4o --model-a-take 1 --model-b-take 2 --judge-model gpt-5.2
+```
+
+### 3.1 System-Message Comparison
+
+Use this command to compare two answer sets generated from different preparations of the same prompt set.
+This is useful when you want to judge the effect of different system messages.
+
+```bash
+plcmp judge_compare_sysmsg \
+  --cases-a eval/output/prepared-v1-sysmsg.json \
+  --cases-b eval/output/prepared-v2-sysmsg.json \
+  --model-a gpt-4o \
+  --model-b gpt-4o \
+  --model-a-take 1 \
+  --model-b-take 2 \
+  --judge-model gpt-5.2
 ```
 
 ### 4. Survey

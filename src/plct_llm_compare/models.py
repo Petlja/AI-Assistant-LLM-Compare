@@ -38,7 +38,8 @@ class TestCaseJudgeCompareResult(BaseModel):
     model_a: str
     model_b: str
     judge_model: str
-    take: int
+    take_a: int
+    take_b: int
     answer_a: str
     answer_b: str
     judge_result: "JudgeCompareStructuredResult"
