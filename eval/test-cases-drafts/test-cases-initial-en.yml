@@ -1,0 +1,159 @@
+# ── testcase.yml ─────────────────────────────────────────────────────────────
+- case_key: F1
+  course_key: kurs-prvi
+  activity_key: 58fb0d70-fb33-4017-929c-ff44453a2ae5
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/368/1/5549
+  activity_desc: First grade Gymnasium / Loops
+  prompt: |
+    Create a lesson plan for this (currently open) lesson.
+
+- case_key: F2
+  course_key: kurs-sesti
+  activity_key: ea1bcbdd-059c-4c28-91ba-8c46e7d0e952
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/368/4/5562
+  activity_desc: Linear programs / Sixth grade Gymnasium
+  prompt: |
+    Create a class plan for this lesson with the given duration and structure (duration: 45 min).
+
+- case_key: F3
+  course_key: kurs-sedmi-pygame
+  activity_key: 4932bc09-ca0d-44be-836d-c9e9fcca413a
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/395/6/5649
+  activity_desc: Pygame / Seventh grade
+  prompt: |
+    Create test questions based on this lesson.
+
+# ── pygame-testcase.yml ───────────────────────────────────────────────────────
+- case_key: A1
+  course_key: kurs-sedmi-pygame
+  activity_key: 07bb678b-6b48-4a74-8adc-98de2fffd7be
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/395/11/5672
+  activity_desc: Informatics 7 / Python / Pygame
+  prompt: |
+    Write a Python program that draws a square / multiple squares using loops (e.g., 10 squares with a shared bottom-left vertex and side lengths 10, 20, 30, … px).
+
+- case_key: A2
+  course_key: kurs-sedmi-pygame
+  activity_key: a62d1383-c81a-4f33-961d-ff45c60e42f5
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/395/5/5645
+  activity_desc: Informatics 7 / Python / Pygame
+  prompt: |
+    Design a practical exercise/task on Pygame drawing (e.g., draw at least 3 rectangles and 1 ellipse that together form a meaningful shape, with a limit of up to 7 elements).
+
+# ── prolog-testcase.yml ───────────────────────────────────────────────────────
+- case_key: B1
+  course_key: specit4_paradigme_logicko
+  activity_key: f94ab664-726c-4b43-b1f0-24f43ddf030f
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11204/3/7794
+  activity_desc: Programming paradigms / Logic programming
+  prompt: |
+    How do you write in Prolog the negation of the condition that some element is a member of a list (i.e., the negation of the predicate member/2)?
+
+- case_key: B2
+  course_key: specit4_paradigme_logicko
+  activity_key: 24649253-fd4f-4405-ad3d-bfca8b693e54
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11204/3/8414
+  activity_desc: Programming paradigms / Logic programming
+  prompt: |
+    Write 10 simple Prolog tasks with solutions (in Serbian, without lists).
+
+- case_key: B3
+  course_key: specit4_paradigme_logicko
+  activity_key: f00ca18d-f963-457c-bc17-1c62248a418f
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11204/3/8416
+  activity_desc: Programming paradigms / Logic programming
+  prompt: |
+    Write another similar logic puzzle (Voting on visits to cities) with a new set of conditions.
+
+# ── cpp-testcase.yml ──────────────────────────────────────────────────────────
+- case_key: D1
+  course_key: etit2_prog
+  activity_key: 3_funkcije/313_rekurzivne
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11234/3/8309
+  activity_desc: Electrical Engineering 4 / C++ / Recursion
+  prompt: |
+    Solve in C++: Write a recursive function that computes the number of ways to reach the n-th step if jumps of 1, 2, or 3 steps are allowed, and display the result for n=6.
+
+# ── sql-testcase.yml ──────────────────────────────────────────────────────────
+- case_key: C1
+  course_key: kurs-gim-cetvrti-prirodni-inf
+  activity_key: 4e18d17f-3a00-45e3-a88e-777849333650
+  activity_url: https://petlja.org/sr-Cyrl-RS/kurs/4655/16/6439
+  activity_desc: Informatics Gymnasium 4 / SQL / Data update queries
+  prompt: |
+    Write an SQL query that, in the table Ucenik for class 1/11, changes the gender from 'm' to 'ž' for all female students (female names end with 'a').
+
+- case_key: C2
+  course_key: kurs-gim-cetvrti-prirodni-inf
+  activity_key: 436d48b9-8cb2-4868-b3a9-47bfab6741ad
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/4654/17/6525
+  activity_desc: Informatics Gymnasium 4 / SQL / Data update queries
+  prompt: |
+    Write an SQL DELETE query to delete grade data (e.g., delete all failing grades or all math grades) and confirm whether the proposed DELETE is correct.
+
+# ── web-testcase.yml ──────────────────────────────────────────────────────────
+- case_key: G1
+  course_key: kurs-treci-gim-prirodni
+  activity_key: 843f3739-6d1e-495a-8683-5d4fe4198344
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/488/3/6298
+  activity_desc: Web / HTML / Tables
+  prompt: |
+    How is <tfoot> properly used in an HTML table (example, where it is placed relative to <tbody>, and which tag is used for a cell in the footer)?
+
+- case_key: G2
+  course_key: kurs-treci-gim-prirodni
+  activity_key: 7778650d-29dd-4d75-a4fd-1e7844a262a6
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/488/4/6302
+  activity_desc: Web / HTML / Linking
+  prompt: |
+    Can you explain in detail the lesson on linking HTML documents?
+
+- case_key: G3
+  course_key: kurs-treci-gim-prirodni
+  activity_key: 24396313-c689-4095-bd3b-d04ee23a850a
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/488/9/6329
+  activity_desc: Web / HTML / Styling
+  prompt: |
+    How can you, within the same HTML container, make some of the buttons align to the right and the rest to the left (e.g., two buttons on the right, four on the left)?
+
+# ── cs-testcase.yml ───────────────────────────────────────────────────────────
+- case_key: E1
+  course_key: kurs-prog3-spec-IT
+  activity_key: 20e1a885-79cd-4c08-a1f9-3254eaffe6d8
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/7831/2/5328
+  activity_desc: C# / SpecIT 3 / Geometry
+  prompt: |
+    Given the coordinates of the vertices of a square (e.g., A and C or A and B) in square ABCD, determine the coordinates of the remaining vertices.
+
+# ── misc-testcase.yml ─────────────────────────────────────────────────────────
+- case_key: H1
+  course_key: kurs-prog3-spec-IT
+  activity_key: 72c286be-6352-460d-801b-c66a3e6a050c
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/7831/3/5346
+  activity_desc: SpecIT 3 / Regex
+  prompt: |
+    What does the regular expression \d.\d+ (or \d.\d+?) mean?
+
+- case_key: H2
+  course_key: etit1_prog
+  activity_key: struktura_i_tipovi/tipovi
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11231/3/7989
+  activity_desc: Programming 1 / Structure and types / Types
+  prompt: |
+    What is the binary number system?
+
+- case_key: H3
+  course_key: kurs-prog3-spec-IT
+  activity_key: 7fb5f158-afd0-4940-839b-24382f34add2
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/7831/4/5354
+  activity_desc: SpecIT 3 / Graphs
+  prompt: |
+    How can I explain graph theory and graph representations (adjacency matrix and adjacency list) to beginners, step by step, so that students can recognize when each approach is used in problems?
+
+- case_key: H4
+  course_key: kurs-osmi
+  activity_key: 37b1d0f9-fa42-46c3-b427-5699b46f0e48
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/479/5/6135
+  activity_desc: Pantheon / Eighth grade / Data analysis
+  prompt: |
+    Create an example of code in a Jupyter Notebook that uses Pandas (DataFrame) to process and display data.

@@ -18,6 +18,7 @@ dependencies = [
     "pyyaml",
     "transformers",
     "plct-server",
+    "pip>=26.0.1",
 ]
 
 [project.scripts]
