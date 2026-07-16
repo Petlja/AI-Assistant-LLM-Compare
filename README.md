@@ -1,6 +1,6 @@
 # Comparing AI Assistant Responses Across LLMs
 
-A CLI tool for comparing LLM responses to educational prompts and generating evaluation surveys.
+A CLI tool for evaluating and comparing LLM responses to educational prompts. It supports automated model-vs-model comparison judged by a third judge/tutor model, prompt / system-message A/B judging, and generating human-evaluation surveys.
 
 ## Setup
 
