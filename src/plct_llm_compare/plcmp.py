@@ -6,6 +6,7 @@ import click
 from .prepare import do_prepare
 from .inference import do_inference
 from .judge_compare import do_judge_compare, do_judge_compare_sysmsg
+from .human_eval import do_human_eval
 from .survey import do_survey
 
 
@@ -55,9 +56,16 @@ def prepare(cases: str) -> None:
     type=int,
     help="Take index for this inference run.",
 )
-def inference(cases: str, model: str, take: int) -> None:
+@click.option(
+    "--temperature",
+    "-t",
+    default=0.5,
+    type=float,
+    help="Sampling temperature (use ~0.7 when generating answer pairs).",
+)
+def inference(cases: str, model: str, take: int, temperature: float) -> None:
     """Inference of model"""
-    asyncio.run(do_inference(cases, model, take))
+    asyncio.run(do_inference(cases, model, take, temperature))
 
 
 @main.command(name="judge_compare")
@@ -167,6 +175,86 @@ def judge_compare_sysmsg(
             model_b_take,
             judge_model,
         )
+    )
+
+
+@main.command(name="human_eval")
+@click.option(
+    "--cases",
+    "-c",
+    default="eval/output/test-cases-sysmsg.json",
+    type=click.Path(exists=True),
+    help="Path to the test cases with system messages JSON file.",
+)
+@click.option(
+    "--model-a",
+    default="gpt-4o",
+    help="Model whose answers form side A (before the blind shuffle).",
+)
+@click.option(
+    "--model-b",
+    default="gpt-4o",
+    help="Model whose answers form side B (before the blind shuffle).",
+)
+@click.option(
+    "--model-a-take",
+    default=1,
+    type=int,
+    help="Take index for model A's pre-generated outputs.",
+)
+@click.option(
+    "--model-b-take",
+    default=2,
+    type=int,
+    help="Take index for model B's pre-generated outputs.",
+)
+@click.option(
+    "--out-dir",
+    "-o",
+    default="eval/output/human_eval",
+    type=click.Path(file_okay=False),
+    help="Directory for the annotation YAML, assignment key, and HTML viewer.",
+)
+@click.option(
+    "--seed",
+    default=0,
+    type=int,
+    help="Seed for the per-case blind shuffle (same seed = same layout).",
+)
+@click.option(
+    "--no-shuffle",
+    is_flag=True,
+    default=False,
+    help="Disable the blind shuffle; A is always (model-a, model-a-take).",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Regenerate from scratch, discarding existing human input.",
+)
+def human_eval(
+    cases: str,
+    model_a: str,
+    model_b: str,
+    model_a_take: int,
+    model_b_take: int,
+    out_dir: str,
+    seed: int,
+    no_shuffle: bool,
+    force: bool,
+) -> None:
+    """Generate a combined annotation YAML and a side-by-side viewer for human input."""
+    do_human_eval(
+        cases,
+        model_a,
+        model_b,
+        model_a_take,
+        model_b_take,
+        out_dir,
+        seed=seed,
+        shuffle=not no_shuffle,
+        force=force,
     )
 
 

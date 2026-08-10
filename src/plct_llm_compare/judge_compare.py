@@ -15,9 +15,11 @@ from plct_server.ai.model_conf import ModelProvider, MODEL_CONFIGS_LIST
 from .config import OPENAI_API_KEY, VLLM_URL
 from .models import (
     JudgeCompareCumulativeScores,
+    JudgeCompareReconciledResult,
     JudgeCompareStructuredResult,
     TestCase,
     TestCaseJudgeCompareResult,
+    safe_model_name,
 )
 
 # Temperature 0.0 for deterministic judging — analytical task, no creativity needed.
@@ -278,8 +280,8 @@ async def do_judge_compare(
 
     judge_cumulative_scores = JudgeCompareCumulativeScores()
 
-    model_a_safe = model_a.replace("/", "--")
-    model_b_safe = model_b.replace("/", "--")
+    model_a_safe = safe_model_name(model_a)
+    model_b_safe = safe_model_name(model_b)
 
     for tc in test_cases:
         click.echo(
@@ -341,7 +343,7 @@ async def do_judge_compare(
         )
 
         # Reconcile AB + BA into a single debiased result
-        judge_result, position_agreed = JudgeCompareStructuredResult.reconcile(
+        judge_result, position_agreed = JudgeCompareReconciledResult.reconcile(
             judge_result_ab, judge_result_ba
         )
         judge_cumulative_scores.update(judge_result, position_agreed)
@@ -355,7 +357,7 @@ async def do_judge_compare(
         judge_response = _render_judge_result(judge_result)
 
         judge_html = md.render(judge_response)
-        judge_model_safe = judge_model.replace("/", "--")
+        judge_model_safe = safe_model_name(judge_model)
         base_name = (
             f"{tc.case_key}_a{model_a_take}_b{model_b_take}_"
             f"{model_a_safe}_vs_{model_b_safe}_judge_{judge_model_safe}"
@@ -402,8 +404,10 @@ async def do_judge_compare(
         wa = judge_cumulative_scores.winner_a_count
         wb = judge_cumulative_scores.winner_b_count
         wt = judge_cumulative_scores.no_winner_count
+        wi = judge_cumulative_scores.inconsistent_count
         summary_lines.append(
-            f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} Tie={wt / n:<6.0%}"
+            f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} "
+            f"Tie={wt / n:<6.0%} Inconsistent={wi / n:<6.0%}"
         )
         pa = judge_cumulative_scores.position_agree_count
         summary_lines.append(f"  {'Position agreement:':<24s} {pa}/{n} ({pa / n:.0%})")
@@ -411,7 +415,7 @@ async def do_judge_compare(
         for line in summary_lines:
             click.echo(line)
 
-        judge_model_safe = judge_model.replace("/", "--")
+        judge_model_safe = safe_model_name(judge_model)
         test_cases_name = cases_path.stem 
         summary_file = (
             cases_path.parent
@@ -460,8 +464,8 @@ async def do_judge_compare_sysmsg(
 
     judge_cumulative_scores = JudgeCompareCumulativeScores()
 
-    model_a_safe = model_a.replace("/", "--")
-    model_b_safe = model_b.replace("/", "--")
+    model_a_safe = safe_model_name(model_a)
+    model_b_safe = safe_model_name(model_b)
 
     for tc_a in test_cases_a:
         tc_b = cases_b_by_key.get(tc_a.case_key)
@@ -530,7 +534,7 @@ async def do_judge_compare_sysmsg(
             ),
         )
 
-        judge_result, position_agreed = JudgeCompareStructuredResult.reconcile(
+        judge_result, position_agreed = JudgeCompareReconciledResult.reconcile(
             judge_result_ab, judge_result_ba
         )
         judge_cumulative_scores.update(judge_result, position_agreed)
@@ -544,7 +548,7 @@ async def do_judge_compare_sysmsg(
         judge_response = _render_judge_result(judge_result)
 
         judge_html = md.render(judge_response)
-        judge_model_safe = judge_model.replace("/", "--")
+        judge_model_safe = safe_model_name(judge_model)
         base_name = (
             f"{tc_a.case_key}_a{model_a_take}_b{model_b_take}_"
             f"{model_a_safe}_vs_{model_b_safe}_judge_{judge_model_safe}"
@@ -591,8 +595,10 @@ async def do_judge_compare_sysmsg(
         wa = judge_cumulative_scores.winner_a_count
         wb = judge_cumulative_scores.winner_b_count
         wt = judge_cumulative_scores.no_winner_count
+        wi = judge_cumulative_scores.inconsistent_count
         summary_lines.append(
-            f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} Tie={wt / n:<6.0%}"
+            f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} "
+            f"Tie={wt / n:<6.0%} Inconsistent={wi / n:<6.0%}"
         )
         pa = judge_cumulative_scores.position_agree_count
         summary_lines.append(f"  {'Position agreement:':<24s} {pa}/{n} ({pa / n:.0%})")
@@ -600,7 +606,7 @@ async def do_judge_compare_sysmsg(
         for line in summary_lines:
             click.echo(line)
 
-        judge_model_safe = judge_model.replace("/", "--")
+        judge_model_safe = safe_model_name(judge_model)
         summary_file = (
             cases_a_path.parent
             / f"summary_{model_a_safe}_vs_{model_b_safe}_judge_{judge_model_safe}_{cases_a_path.stem}_{cases_b_path.stem}.txt"

@@ -8,11 +8,13 @@ from plct_server.ai.engine import AiEngine
 from plct_server.ai.model_conf import ModelProvider
 from plct_server.ai.client import AiClientFactory
 
-from .models import TestCaseResponce, TestCase
+from .models import TestCaseResponce, TestCase, safe_model_name
 from .config import OPENAI_API_KEY, VLLM_URL, PLCT_AI_CTX_URL
 
 
-async def do_inference(cases_fname: str, model: str, take: int = 1) -> None:
+async def do_inference(
+    cases_fname: str, model: str, take: int = 1, temperature: float = 0.5
+) -> None:
     cases_path = Path(cases_fname)
     with cases_path.open("r", encoding="utf-8") as f:
         data = json.load(f)
@@ -49,13 +51,13 @@ async def do_inference(cases_fname: str, model: str, take: int = 1) -> None:
             model=model_config.name,
             messages=messages,
             max_completion_tokens=8000,
-            temperature=0.5,
+            temperature=temperature,
         )
 
         response = completion.choices[0].message.content
         md = MarkdownIt()
         html_content = md.render(response)
-        model_safe = model.replace("/", "--")
+        model_safe = safe_model_name(model)
         base_name = f"{tc.case_key}_{take}_{model_safe}"
         output_file = cases_path.parent / f"{base_name}.html"
         output_file.write_text(html_content, encoding="utf-8")
@@ -70,6 +72,7 @@ async def do_inference(cases_fname: str, model: str, take: int = 1) -> None:
             prompt=tc.prompt,
             model=model,
             take=take,
+            temperature=temperature,
         )
         meta_file = cases_path.parent / f"{base_name}.json"
         meta_file.write_text(metadata.model_dump_json(indent=2), encoding="utf-8")
