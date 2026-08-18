@@ -276,7 +276,7 @@ def _generate_judge_results_yaml(
     """Machine-readable per-case verdicts for judge-vs-human alignment.
 
     Verdicts are in CANONICAL order (A is always model_a/take_a). The human
-    annotations.yml is blind-shuffled per case, so its verdicts must be
+    human_feedback.yml is blind-shuffled per case, so its verdicts must be
     un-swapped via assignment.yml before the two are compared.
     """
     payload = {
@@ -299,7 +299,7 @@ def _generate_judge_results_yaml(
     }
     header = (
         "# Auto-eval verdicts, CANONICAL order: A = model_a/take_a, B = model_b/take_b.\n"
-        "# human_eval/annotations.yml is blind-shuffled per case — un-swap it with\n"
+        "# human_eval/human_feedback.yml is blind-shuffled per case — un-swap it with\n"
         "# assignment.yml (swapped: true => flip A/B) before comparing.\n"
     )
     return header + yaml.safe_dump(payload, allow_unicode=True, sort_keys=False, width=10000)

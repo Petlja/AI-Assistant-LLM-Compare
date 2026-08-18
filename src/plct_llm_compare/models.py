@@ -216,7 +216,7 @@ class HumanEvalAnnotation(BaseModel):
 
 
 class HumanEvalAnnotationsFile(BaseModel):
-    """Schema of the combined annotations.yml handed to human annotators."""
+    """Schema of the combined human_feedback.yml handed to human annotators."""
 
     pair_dir: str
     cases: list[HumanEvalAnnotation]
@@ -248,3 +248,38 @@ class HumanEvalAssignmentsFile(BaseModel):
     shuffled: bool
     seed: int
     cases: list[HumanEvalCaseAssignment]
+
+
+class CalibrationCaseResult(BaseModel):
+    """One case in eval_answers.yml: what the pointwise scorer said.
+
+    In DISPLAYED frame — `score_a` is the score of whatever the annotator saw
+    as answer A. That is what makes this file readable side by side with
+    human_feedback.yml, which is the whole point: the comparison is done by
+    hand. `swapped` is carried inline so the row is self-describing without
+    cross-referencing assignment.yml.
+    """
+
+    id: str
+    swapped: bool
+    score_a: int
+    score_b: int
+    verdict: Literal["A", "B", "Tie"]
+
+
+class CalibrationResultsFile(BaseModel):
+    """Schema of eval_answers.yml — the scorer's side of the comparison.
+
+    Raw scores are always written, so the tie band can be re-derived by hand at
+    a different epsilon without spending another run.
+    """
+
+    frame: Literal["displayed"] = "displayed"
+    scorer: str
+    scale_max: int
+    tie_band: int
+    model_a: str
+    take_a: int
+    model_b: str
+    take_b: int
+    cases: list[CalibrationCaseResult]

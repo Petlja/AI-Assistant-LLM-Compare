@@ -7,6 +7,7 @@ from .prepare import do_prepare
 from .inference import do_inference
 from .judge_compare import do_judge_compare
 from .human_eval import do_human_eval
+from .calibrate import do_calibrate
 from .survey import do_survey
 
 
@@ -218,6 +219,115 @@ def human_eval(
         seed=seed,
         shuffle=not no_shuffle,
         force=force,
+    )
+
+
+@main.command()
+@click.option(
+    "--cases",
+    "-c",
+    default="eval/output/test-cases-sysmsg.json",
+    type=click.Path(exists=True),
+    help="Path to the test cases with system messages JSON file.",
+)
+@click.option(
+    "--model-a",
+    default="gpt-4o",
+    help="Model whose answers form side A (before the blind shuffle).",
+)
+@click.option(
+    "--model-b",
+    default="gpt-4o",
+    help="Model whose answers form side B (before the blind shuffle).",
+)
+@click.option(
+    "--model-a-take",
+    default=1,
+    type=int,
+    help="Take index for model A's pre-generated outputs.",
+)
+@click.option(
+    "--model-b-take",
+    default=2,
+    type=int,
+    help="Take index for model B's pre-generated outputs.",
+)
+@click.option(
+    "--scorer",
+    default="v1-baseline",
+    help="Scorer variant from the fine-tuning repo's SCORER_VARIANTS registry.",
+)
+@click.option(
+    "--tie-band",
+    default=5,
+    type=int,
+    help="Score difference at or below which the derived verdict is Tie.",
+)
+@click.option(
+    "--out-dir",
+    "-o",
+    default="eval/output/calibrate",
+    type=click.Path(file_okay=False),
+    help="Directory for the annotation and scorer artifacts.",
+)
+@click.option(
+    "--seed",
+    default=0,
+    type=int,
+    help="Seed for the per-case blind shuffle (same seed = same layout).",
+)
+@click.option(
+    "--no-shuffle",
+    is_flag=True,
+    default=False,
+    help="Disable the blind shuffle; A is always (model-a, model-a-take).",
+)
+@click.option(
+    "--force",
+    is_flag=True,
+    default=False,
+    help="Regenerate from scratch, discarding existing human input.",
+)
+@click.option(
+    "--concurrency",
+    default=4,
+    type=int,
+    help="Parallel scoring calls.",
+)
+def calibrate(
+    cases: str,
+    model_a: str,
+    model_b: str,
+    model_a_take: int,
+    model_b_take: int,
+    scorer: str,
+    tie_band: int,
+    out_dir: str,
+    seed: int,
+    no_shuffle: bool,
+    force: bool,
+    concurrency: int,
+) -> None:
+    """Score both sides of each pair independently, for comparison against humans.
+
+    Runs the fine-tuning pipeline's pointwise scorer on each answer alone — it
+    never sees a pair — then derives an A/B/Tie verdict from the two scores.
+    Writes eval_answers.yml alongside the blind human_feedback.yml so the two
+    can be read side by side.
+    """
+    do_calibrate(
+        cases,
+        model_a,
+        model_b,
+        model_a_take,
+        model_b_take,
+        out_dir,
+        scorer,
+        tie_band,
+        seed=seed,
+        shuffle=not no_shuffle,
+        force=force,
+        concurrency=concurrency,
     )
 
 

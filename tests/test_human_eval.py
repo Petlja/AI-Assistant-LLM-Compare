@@ -8,7 +8,7 @@ import yaml
 from plct_llm_compare.human_eval import (
     ANNOTATIONS_FILE,
     ASSIGNMENT_FILE,
-    _pair_dir_name,
+    pair_dir_name,
     do_human_eval,
 )
 from plct_llm_compare.models import (
@@ -17,7 +17,7 @@ from plct_llm_compare.models import (
 )
 
 MODEL = "m1"
-PAIR_DIR = _pair_dir_name(MODEL, 1, MODEL, 2)
+PAIR_DIR = pair_dir_name(MODEL, 1, MODEL, 2)
 
 
 def _setup_cases(tmp_path: Path, n: int = 3) -> Path:

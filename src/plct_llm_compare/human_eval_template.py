@@ -1,7 +1,7 @@
 """Self-contained HTML template for the human-eval side-by-side viewer.
 
 Pure reading aid: the annotator reads answers here and fills in
-annotations.yml by hand. Placeholders __TITLE__, __PAIR_META__ and
+human_feedback.yml by hand. Placeholders __TITLE__, __PAIR_META__ and
 __CASE_DATA__ are substituted with str.replace (not str.format — the
 template is full of CSS/JS braces).
 """
@@ -110,7 +110,7 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
       '<header class="page">' +
       "<h1>Poređenje odgovora — pregled</h1>" +
       '<p class="meta">' + esc(pairMeta.pair_dir) +
-      " — ocene se upisuju u annotations.yml</p>" +
+      " — ocene se upisuju u human_feedback.yml</p>" +
       "</header>" +
       '<table class="index"><thead><tr><th>Slučaj</th><th>Opis</th></tr></thead>' +
       "<tbody>" + rows + "</tbody></table>";
