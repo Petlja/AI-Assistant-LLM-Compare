@@ -5,7 +5,7 @@ import click
 
 from .prepare import do_prepare
 from .inference import do_inference
-from .judge_compare import do_judge_compare, do_judge_compare_sysmsg
+from .judge_compare import do_judge_compare
 from .human_eval import do_human_eval
 from .survey import do_survey
 
@@ -166,14 +166,14 @@ def judge_compare_sysmsg(
 ) -> None:
     """Run a system-message comparison judged by a third model."""
     asyncio.run(
-        do_judge_compare_sysmsg(
+        do_judge_compare(
             cases_a,
-            cases_b,
             model_a,
             model_b,
             model_a_take,
             model_b_take,
             judge_model,
+            cases_b_fname=cases_b,
         )
     )
 

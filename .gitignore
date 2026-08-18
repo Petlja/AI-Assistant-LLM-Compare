@@ -133,6 +133,7 @@ dmypy.json
 eval/output
 eval/results
 eval/survey-respon*.json
+output/
 
 # uv
 uv.lock
