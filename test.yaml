@@ -1,0 +1,159 @@
+# ── testcase.yml ─────────────────────────────────────────────────────────────
+- case_key: F1
+  course_key: kurs-prvi
+  activity_key: 58fb0d70-fb33-4017-929c-ff44453a2ae5
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/368/1/5549
+  activity_desc: Prvi razred Gim / Petlje
+  prompt: |
+    Napravi nastavnu pripremu za ovu (trenutno otvorenu) lekciju.
+
+- case_key: F2
+  course_key: kurs-sesti
+  activity_key: ea1bcbdd-059c-4c28-91ba-8c46e7d0e952
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/368/4/5562
+  activity_desc: Линијски програми / Šesti razred Gim
+  prompt: |
+    Napravi plan časa za ovu lekciju sa zadatim trajanjem i strukturom (trajanje: 45 min)
+
+- case_key: F3
+  course_key: kurs-sedmi-pygame
+  activity_key: 4932bc09-ca0d-44be-836d-c9e9fcca413a
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/395/6/5649
+  activity_desc: Pygame / Sedmi razred
+  prompt: |
+    Направи питања за тест из ове лекције.
+
+# ── pygame-testcase.yml ───────────────────────────────────────────────────────
+- case_key: A1
+  course_key: kurs-sedmi-pygame
+  activity_key: 07bb678b-6b48-4a74-8adc-98de2fffd7be
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/395/11/5672
+  activity_desc: Информатика 7 / Python / Pygame
+  prompt: |
+    Napiši Python program koji crta kvadrat/više kvadrata koristeći petlje (npr. 10 kvadrata sa zajedničkim donjim levim temenom i stranicama 10, 20, 30, … px).
+
+- case_key: A2
+  course_key: kurs-sedmi-pygame
+  activity_key: a62d1383-c81a-4f33-961d-ff45c60e42f5
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/395/5/5645
+  activity_desc: Информатика 7 / Python / Pygame
+  prompt: |
+    Osmisli praktičnu vežbu/zadatak iz Pygame crtanja (npr. nacrtati bar 3 pravougaonika i 1 elipsu koji zajedno čine smislen oblik, uz ograničenje do 7 elemenata).
+
+# ── prolog-testcase.yml ───────────────────────────────────────────────────────
+- case_key: B1
+  course_key: specit4_paradigme_logicko
+  activity_key: f94ab664-726c-4b43-b1f0-24f43ddf030f
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11204/3/7794
+  activity_desc: Програмске парадигме / Логичко програмирање
+  prompt: |
+    Kako u Prologu napisati negaciju uslova da je neki element član liste (tj. negaciju predikata member/2)
+
+- case_key: B2
+  course_key: specit4_paradigme_logicko
+  activity_key: 24649253-fd4f-4405-ad3d-bfca8b693e54
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11204/3/8414
+  activity_desc: Програмске парадигме / Логичко програмирање
+  prompt: |
+    Napiši 10 jednostavnih zadataka iz Prologa sa rešenjima (na srpskom, bez listi).
+
+- case_key: B3
+  course_key: specit4_paradigme_logicko
+  activity_key: f00ca18d-f963-457c-bc17-1c62248a418f
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11204/3/8416
+  activity_desc: Програмске парадигме / Логичко програмирање
+  prompt: |
+    Napiši još jednu sličnu logičku zagonetku (Glasanje o poseti gradovima) sa novim skupom uslova.
+
+# ── cpp-testcase.yml ──────────────────────────────────────────────────────────
+- case_key: D1
+  course_key: etit2_prog
+  activity_key: 3_funkcije/313_rekurzivne
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11234/3/8309
+  activity_desc: Elektro tehnika 4 / C++ / Rekurzija
+  prompt: |
+    Reši u C++: Napiši rekurzivnu funkciju koja računa broj načina da se dođe do n-tog stepenika ako su dozvoljeni skokovi od 1, 2 ili 3 stepenika, i prikaži rezultat za n=6.
+
+# ── sql-testcase.yml ──────────────────────────────────────────────────────────
+- case_key: C1
+  course_key: kurs-gim-cetvrti-prirodni-inf
+  activity_key: 4e18d17f-3a00-45e3-a88e-777849333650
+  activity_url: https://petlja.org/sr-Cyrl-RS/kurs/4655/16/6439
+  activity_desc: Информатика Гимназија 4/ SQL / Упити за ажурирање података
+  prompt: |
+    Napišite SQL upit koji u tabeli Ucenik za odeljenje 1/11 menja pol sa 'm' na 'ž' svim učenicama (ženska imena se završavaju na 'a').
+
+- case_key: C2
+  course_key: kurs-gim-cetvrti-prirodni-inf
+  activity_key: 436d48b9-8cb2-4868-b3a9-47bfab6741ad
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/4654/17/6525
+  activity_desc: Информатика Гимназија 4/ SQL / Упити за ажурирање података
+  prompt: |
+    Napiši SQL DELETE upit za brisanje podataka o ocenama (npr. obrisati sve jedinice ili sve ocene iz matematike) i potvrdi da li je predloženi DELETE ispravan.
+
+# ── web-testcase.yml ──────────────────────────────────────────────────────────
+- case_key: G1
+  course_key: kurs-treci-gim-prirodni
+  activity_key: 843f3739-6d1e-495a-8683-5d4fe4198344
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/488/3/6298
+  activity_desc: Web / HTML / Tabele
+  prompt: |
+    Kako se pravilno koristi <tfoot> u HTML tabeli (primer, gde se nalazi u odnosu na <tbody>, i koji tag ide za ćeliju u podnožju)?
+
+- case_key: G2
+  course_key: kurs-treci-gim-prirodni
+  activity_key: 7778650d-29dd-4d75-a4fd-1e7844a262a6
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/488/4/6302
+  activity_desc: Web / HTML / Linkovanje
+  prompt: |
+    Možeš li detaljno da objasniš lekciju o povezivanju (linkovanju) HTML dokumenata?
+
+- case_key: G3
+  course_key: kurs-treci-gim-prirodni
+  activity_key: 24396313-c689-4095-bd3b-d04ee23a850a
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/488/9/6329
+  activity_desc: Web / HTML / Stilizovanje
+  prompt: |
+    Kako se u istom HTML kontejneru može postići da se deo dugmadi poravna desno, a ostatak levo (npr. dva dugmeta desno, četiri levo)?
+
+# ── cs-testcase.yml ───────────────────────────────────────────────────────────
+- case_key: E1
+  course_key: kurs-prog3-spec-IT
+  activity_key: 20e1a885-79cd-4c08-a1f9-3254eaffe6d8
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/7831/2/5328
+  activity_desc: C# / SpecIT 3 / Geometrija
+  prompt: |
+    Дате су координате темена квадрата (нпр. A и C или A и B) у квадрату ABCD. Одредити координате преосталих темена.
+
+# ── misc-testcase.yml ─────────────────────────────────────────────────────────
+- case_key: H1
+  course_key: kurs-prog3-spec-IT
+  activity_key: 72c286be-6352-460d-801b-c66a3e6a050c
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/7831/3/5346
+  activity_desc: SpecIT 3 / Regex
+  prompt: |
+    Шта значи регуларни израз \d.\d+ (или \d.\d+?)?
+
+- case_key: H2
+  course_key: etit1_prog
+  activity_key: struktura_i_tipovi/tipovi
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/11231/3/7989
+  activity_desc: Programiranje 1 / Struktura i tipovi / Tipovi
+  prompt: |
+    Šta je binarni brojevni sistem?
+
+- case_key: H3
+  course_key: kurs-prog3-spec-IT
+  activity_key: 7fb5f158-afd0-4940-839b-24382f34add2
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/7831/4/5354
+  activity_desc: SpecIT 3 / Grafovi
+  prompt: |
+    Kako da objasnim teoriju grafova i predstavljanje grafova (matrica povezanosti i lista susedstva) početnicima, korak po korak, tako da učenici mogu da prepoznaju kada se koji pristup koristi u zadacima?
+
+- case_key: H4
+  course_key: kurs-osmi
+  activity_key: 37b1d0f9-fa42-46c3-b427-5699b46f0e48
+  activity_url: https://petlja.org/sr-Latn-RS/kurs/479/5/6135
+  activity_desc: Pantheon / Osmi razred / Analiza podataka
+  prompt: |
+    Napravi primer koda u Jupyter Notebook-u koji koristi Pandas (DataFrame) za obradu i prikaz podataka.
