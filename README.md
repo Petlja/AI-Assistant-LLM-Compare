@@ -58,26 +58,23 @@ plcmp inference -m gpt-4o --take 2 -t 0.7
 
 ### 3. Judge Compare
 
-Reads the pre-generated answer files for both models and sends them to a third model (judge) for comparison. Each pair is judged **twice**, with the A/B order swapped between runs, to cancel out position bias; if the two runs disagree after un-swapping, the final verdict is `Inconsistent` (the judge is order-biased on that pair) rather than a silent tie. Saves judge output as HTML and detailed JSON metadata to `eval/output/`.
+Reads the pre-generated answer files for both sides and sends them to a third model (judge) for comparison. Each pair is judged **twice**, with the A/B order swapped between runs, to cancel out position bias; if the two runs disagree after un-swapping, the final verdict is `Inconsistent` (the judge is order-biased on that pair) rather than a silent tie.
 
 ```bash
-plcmp judge_compare [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o-mini] [--model-b gpt-4o] [--model-a-take 1] [--model-b-take 1] [--judge-model gpt-5.2]
+plcmp judge_compare [-c eval/output/test-cases-sysmsg.json] [--cases-b FILE] [--model-a gpt-4o-mini] [--model-b gpt-4o] [--model-a-take 1] [--model-b-take 1] [--judge-model gpt-5.2]
 ```
 
-Examples:
+With a single cases file, both sides share a system message and only the model or the take differs:
 
 ```bash
 plcmp judge_compare --model-a gpt-4o-mini --model-b gpt-4o --model-a-take 1 --model-b-take 2 --judge-model gpt-5.2
 ```
 
-### 3.1 System-Message Comparison
-
-Use this command to compare two answer sets generated from different preparations of the same prompt set.
-This is useful when you want to judge the effect of different system messages.
+Pass `--cases-b` to give each side its own system message, and compare the effect of a system-message change instead. Each answer is then judged against the system message it was actually generated under:
 
 ```bash
-plcmp judge_compare_sysmsg \
-  --cases-a eval/output/prepared-v1-sysmsg.json \
+plcmp judge_compare \
+  -c eval/output/prepared-v1-sysmsg.json \
   --cases-b eval/output/prepared-v2-sysmsg.json \
   --model-a gpt-4o \
   --model-b gpt-4o \
@@ -85,6 +82,12 @@ plcmp judge_compare_sysmsg \
   --model-b-take 2 \
   --judge-model gpt-5.2
 ```
+
+Outputs to the cases file's directory:
+
+- `<case>_a<N>_b<M>_<a>_vs_<b>_judge_<judge>.html` / `.json` — per-case judge output and full metadata.
+- `summary_<run>.txt` — human-readable totals (average scores, win rates, position agreement).
+- `judge_results_<run>.yml` — per-case verdicts in **canonical** order (A is always `--model-a`/`--model-a-take`), for judge-vs-human alignment work. The human `annotations.yml` is blind-shuffled per case, so un-swap it with `assignment.yml` before comparing the two.
 
 ### 4. Human Evaluation
 
@@ -117,6 +120,8 @@ Open the notebook and run it top to bottom.
 ## Project Structure
 
 ```
+PLAN.md                   # Multi-phase plan: validating the fine-tuning scorer
+test.yaml                 # 19-case test set (Cyrillic-script variant)
 eval/
   test-cases.yml          # Test case definitions
   output/                 # Generated outputs (HTML, JSON, survey.json)

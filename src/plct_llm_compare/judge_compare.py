@@ -264,16 +264,9 @@ def _render_judge_result(judge_result: JudgeCompareStructuredResult) -> str:
     return "\n".join(lines)
 
 
-def _generate_detailed_results(
-    results: list[tuple[str, JudgeCompareReconciledResult]]
-) -> str:
-    """One line per case, keyed by case_key so it lines up with human_eval ids."""
-    return "\n".join(f"{case_key}: {result.winner}" for case_key, result in results)
-
-
 def _generate_judge_results_yaml(
     *,
-    results: list[tuple[str, JudgeCompareReconciledResult]],
+    results: list[tuple[str, JudgeCompareReconciledResult, bool]],
     model_a: str,
     model_b: str,
     take_a: int,
@@ -299,9 +292,9 @@ def _generate_judge_results_yaml(
                 "judge_verdict": result.winner,
                 "score_a": result.score_a,
                 "score_b": result.score_b,
-                "position_agreed": result.winner != "Inconsistent",
+                "position_agreed": position_agreed,
             }
-            for case_key, result in results
+            for case_key, result, position_agreed in results
         ],
     }
     header = (
@@ -365,7 +358,7 @@ async def do_judge_compare(
     model_b_safe = safe_model_name(model_b)
     judge_model_safe = safe_model_name(judge_model)
 
-    detailed_results: list[tuple[str, JudgeCompareReconciledResult]] = []
+    per_case_results: list[tuple[str, JudgeCompareReconciledResult, bool]] = []
 
     for tc_a in test_cases_a:
         tc_b = cases_b_by_key.get(tc_a.case_key)
@@ -443,7 +436,7 @@ async def do_judge_compare(
             judge_result_ab, judge_result_ba
         )
         judge_cumulative_scores.update(judge_result, position_agreed)
-        detailed_results.append((tc_a.case_key, judge_result))
+        per_case_results.append((tc_a.case_key, judge_result, position_agreed))
 
         agree_str = "AGREE" if position_agreed else "DISAGREE"
         click.echo(
@@ -525,16 +518,10 @@ async def do_judge_compare(
     summary_file.write_text("\n".join(summary_lines).strip() + "\n", encoding="utf-8")
     click.echo(f"  Saved summary to {summary_file}")
 
-    detailed_results_file = cases_a_path.parent / f"detailed_{run_name}.txt"
-    detailed_results_file.write_text(
-        _generate_detailed_results(detailed_results) + "\n", encoding="utf-8"
-    )
-    click.echo(f"  Saved detailed results to {detailed_results_file}")
-
     judge_results_file = cases_a_path.parent / f"judge_results_{run_name}.yml"
     judge_results_file.write_text(
         _generate_judge_results_yaml(
-            results=detailed_results,
+            results=per_case_results,
             model_a=model_a,
             model_b=model_b,
             take_a=model_a_take,

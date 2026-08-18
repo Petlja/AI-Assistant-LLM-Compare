@@ -77,6 +77,16 @@ def inference(cases: str, model: str, take: int, temperature: float) -> None:
     help="Path to the test cases with system messages JSON file.",
 )
 @click.option(
+    "--cases-b",
+    default=None,
+    type=click.Path(exists=True),
+    help=(
+        "Optional second prepared cases file. When given, each side is judged "
+        "against its own system message, so a system-message change can be "
+        "compared instead of a model or a take."
+    ),
+)
+@click.option(
     "--model-a",
     default="gpt-4o-mini",
     help="First model to generate an answer.",
@@ -105,69 +115,22 @@ def inference(cases: str, model: str, take: int, temperature: float) -> None:
 )
 def judge_compare(
     cases: str,
+    cases_b: str | None,
     model_a: str,
     model_b: str,
     model_a_take: int,
     model_b_take: int,
     judge_model: str,
 ) -> None:
-    """Run model-vs-model comparison judged by a third model."""
-    asyncio.run(do_judge_compare(cases, model_a, model_b, model_a_take, model_b_take, judge_model))
+    """Compare two sets of pre-generated answers, judged by a third model.
 
-
-@main.command(name="judge_compare_sysmsg")
-@click.option(
-    "--cases-a",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to the first prepared cases JSON file with system messages.",
-)
-@click.option(
-    "--cases-b",
-    required=True,
-    type=click.Path(exists=True),
-    help="Path to the second prepared cases JSON file with system messages.",
-)
-@click.option(
-    "--model-a",
-    default="gpt-4o",
-    help="Model used for answer set A.",
-)
-@click.option(
-    "--model-b",
-    default="gpt-4o",
-    help="Model used for answer set B.",
-)
-@click.option(
-    "--model-a-take",
-    default=1,
-    type=int,
-    help="Take index for model A's pre-generated outputs.",
-)
-@click.option(
-    "--model-b-take",
-    default=2,
-    type=int,
-    help="Take index for model B's pre-generated outputs.",
-)
-@click.option(
-    "--judge-model",
-    default="gpt-4o",
-    help="Judge model that compares answers from model A and model B.",
-)
-def judge_compare_sysmsg(
-    cases_a: str,
-    cases_b: str,
-    model_a: str,
-    model_b: str,
-    model_a_take: int,
-    model_b_take: int,
-    judge_model: str,
-) -> None:
-    """Run a system-message comparison judged by a third model."""
+    With one cases file both sides share a system message and only the model or
+    the take differs. Pass --cases-b to give each side its own system message
+    and compare a system-message change instead.
+    """
     asyncio.run(
         do_judge_compare(
-            cases_a,
+            cases,
             model_a,
             model_b,
             model_a_take,
