@@ -137,3 +137,5 @@ output/
 
 # uv
 uv.lock
+# Working plan, kept local (not merged to main)
+PLAN.md
