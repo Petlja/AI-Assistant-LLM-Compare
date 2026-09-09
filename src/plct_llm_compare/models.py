@@ -216,9 +216,18 @@ class HumanEvalAnnotation(BaseModel):
 
 
 class HumanEvalAnnotationsFile(BaseModel):
-    """Schema of the combined human_feedback.yml handed to human annotators."""
+    """Schema of the combined human_feedback.yml handed to human annotators.
 
-    pair_dir: str
+    `pair_id` is an opaque digest, not the pair directory name: the directory
+    names both models, and an annotator who knows the two models can start
+    recognising one by style instead of judging the answer. assignment.yml
+    records the same id against the real names.
+    """
+
+    # Defaulted so a file written before this field existed (it carried
+    # `pair_dir`, which pydantic now ignores) still parses — those files may
+    # hold real annotations and must never fail to load.
+    pair_id: str = ""
     cases: list[HumanEvalAnnotation]
 
 
@@ -241,6 +250,7 @@ class HumanEvalCaseAssignment(BaseModel):
 class HumanEvalAssignmentsFile(BaseModel):
     """Schema of assignment.yml — the answer key kept away from annotators."""
 
+    pair_id: str
     model_a: str
     take_a: int
     model_b: str

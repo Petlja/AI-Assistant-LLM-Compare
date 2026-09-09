@@ -21,6 +21,7 @@ and a second copy of the shuffle would eventually disagree with this one
 silently. Keep exactly one implementation.
 """
 
+import hashlib
 import json
 import random
 from dataclasses import dataclass
@@ -230,7 +231,7 @@ def _build_viewer_html(pair_meta: dict, cases: list[dict]) -> str:
         return json.dumps(obj, ensure_ascii=False).replace("</", "<\\/")
 
     return (
-        VIEWER_TEMPLATE.replace("__TITLE__", f"Human eval: {pair_meta['pair_dir']}")
+        VIEWER_TEMPLATE.replace("__TITLE__", f"Human eval: {pair_meta['pair_id']}")
         .replace("__PAIR_META__", embed(pair_meta))
         .replace("__CASE_DATA__", embed(cases))
     )
@@ -314,13 +315,18 @@ def write_annotation_artifacts(
         )
 
     dir_name = pair_dir.name
-    annotations_model = HumanEvalAnnotationsFile(pair_dir=dir_name, cases=annotations)
+    # Opaque, deterministic, and derived from the directory name, so a
+    # regenerated pair keeps its id and a returned file can still be matched to
+    # the pair it came from — without naming either model to the annotator.
+    pair_id = hashlib.sha256(dir_name.encode("utf-8")).hexdigest()[:12]
+    annotations_model = HumanEvalAnnotationsFile(pair_id=pair_id, cases=annotations)
     (pair_dir / ANNOTATIONS_FILE).write_text(
         ANNOTATIONS_HEADER + dump_yaml(annotations_model.model_dump()),
         encoding="utf-8",
     )
 
     assignment_model = HumanEvalAssignmentsFile(
+        pair_id=pair_id,
         model_a=model_a,
         take_a=take_a,
         model_b=model_b,
@@ -334,15 +340,9 @@ def write_annotation_artifacts(
         encoding="utf-8",
     )
 
-    pair_meta = {
-        "pair_dir": dir_name,
-        "model_a": model_a,
-        "take_a": take_a,
-        "model_b": model_b,
-        "take_b": take_b,
-        "shuffled": shuffle,
-        "seed": seed,
-    }
+    # The viewer goes to the annotator, so it gets the id and nothing else.
+    # Model, take and seed live in assignment.yml.
+    pair_meta = {"pair_id": pair_id}
     (pair_dir / "index.html").write_text(
         _build_viewer_html(pair_meta, viewer_cases), encoding="utf-8"
     )

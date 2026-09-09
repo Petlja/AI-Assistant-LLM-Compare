@@ -69,7 +69,14 @@ def _load_assignment(pair_dir: Path) -> HumanEvalAssignmentsFile:
 def test_combined_yaml_round_trip(tmp_path):
     pair_dir = _run(_setup_cases(tmp_path), tmp_path / "he")
     annotations = _load_annotations(pair_dir)
-    assert annotations.pair_dir == PAIR_DIR
+    # The annotator's file identifies the pair by an opaque id, never by the
+    # directory name — that names both models, and a annotator who knows which
+    # two models are in play can start recognising one by style.
+    assert annotations.pair_id
+    assert PAIR_DIR not in annotations.pair_id
+    assert MODEL not in annotations.pair_id
+    # assignment.yml, which annotators never see, maps that id back.
+    assert _load_assignment(pair_dir).pair_id == annotations.pair_id
     assert [c.id for c in annotations.cases] == ["T1", "T2", "T3"]
 
     case = annotations.cases[0]

@@ -109,7 +109,7 @@ VIEWER_TEMPLATE = r"""<!DOCTYPE html>
     app.innerHTML =
       '<header class="page">' +
       "<h1>Poređenje odgovora — pregled</h1>" +
-      '<p class="meta">' + esc(pairMeta.pair_dir) +
+      '<p class="meta">' + esc(pairMeta.pair_id) +
       " — ocene se upisuju u human_feedback.yml</p>" +
       "</header>" +
       '<table class="index"><thead><tr><th>Slučaj</th><th>Opis</th></tr></thead>' +
