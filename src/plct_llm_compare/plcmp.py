@@ -253,9 +253,12 @@ def human_eval(
     help="Take index for model B's pre-generated outputs.",
 )
 @click.option(
-    "--scorer",
-    default="v1-baseline",
-    help="Scorer variant from the fine-tuning repo's SCORER_VARIANTS registry.",
+    "--scorer-model",
+    default=None,
+    help=(
+        "Override the teacher model the judge runs on (e.g. gpt-5.4). Sweeps "
+        "the model without touching the prompts."
+    ),
 )
 @click.option(
     "--tie-band",
@@ -300,7 +303,7 @@ def calibrate(
     model_b: str,
     model_a_take: int,
     model_b_take: int,
-    scorer: str,
+    scorer_model: str | None,
     tie_band: int,
     out_dir: str,
     seed: int,
@@ -310,8 +313,8 @@ def calibrate(
 ) -> None:
     """Score both sides of each pair independently, for comparison against humans.
 
-    Runs the fine-tuning pipeline's pointwise scorer on each answer alone — it
-    never sees a pair — then derives an A/B/Tie verdict from the two scores.
+    Runs the fine-tuning pipeline's judge on each answer alone — it never sees
+    a pair — then derives an A/B/Tie verdict from the two substance scores.
     Writes eval_answers.yml alongside the blind human_feedback.yml so the two
     can be read side by side.
     """
@@ -322,8 +325,8 @@ def calibrate(
         model_a_take,
         model_b_take,
         out_dir,
-        scorer,
         tie_band,
+        scorer_model=scorer_model,
         seed=seed,
         shuffle=not no_shuffle,
         force=force,

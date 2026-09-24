@@ -110,7 +110,7 @@ Measures whether the **pointwise** scorer that `astft gen-td` uses to route SFT 
 `gen-td` scores an answer *alone* and routes it against a threshold. This command runs that same scorer — imported live from the AI-Assistant-Fine-Tuning repo, never a copy — once per side of a pair, each time in isolation, then derives an `A`/`B`/`Tie` verdict from the two scores. Compare that against a human's blind verdict on the same pair to see how well the scorer tracks what people actually prefer.
 
 ```bash
-plcmp calibrate [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o] [--model-b gpt-4o] [--model-a-take 1] [--model-b-take 2] [--scorer v1-baseline] [--tie-band 5] [-o eval/output/calibrate]
+plcmp calibrate [-c eval/output/test-cases-sysmsg.json] [--model-a gpt-4o] [--model-b gpt-4o] [--model-a-take 1] [--model-b-take 2] [--scorer teacher-rubric] [--tie-band 5] [-o eval/output/calibrate]
 ```
 
 Writes to `<out-dir>/<pair>/`:
@@ -125,7 +125,7 @@ Writes to `<out-dir>/<pair>/`:
 
 Scores are cached on disk per (answer text, model, take, scorer), so sweeping variants or re-running after annotation costs nothing extra. Editing an answer invalidates its cache entry.
 
-**Requirements:** the AI-Assistant-Fine-Tuning repo must sit next to this one (or set `AI_ASSISTANT_FINE_TUNING_PATH`). Only its `scoring.py` leaf module is imported — no torch, no vllm.
+**Requirements:** the AI-Assistant-Fine-Tuning repo must sit next to this one (or set `AI_ASSISTANT_FINE_TUNING_PATH`). Only its `judging.py` leaf module is imported — no torch, no vllm.
 
 Computing the agreement itself is deliberately **not** part of this command; do that by hand or with your own tools.
 
@@ -148,6 +148,10 @@ Open the notebook and run it top to bottom.
 ```
 PLAN.md                   # Multi-phase plan: validating the fine-tuning scorer
 test.yaml                 # 19-case test set (Cyrillic-script variant)
+os6-testcases.yaml        # 10 teacher use-case clusters on kurs-sesti, Serbian Latin
+os6-testcases-cyrl.yaml   # the same 10 cases transliterated to Cyrillic
+tools/
+  alignment_report.py     # Aggregates judge/human alignment (not a plcmp command)
 eval/
   test-cases.yml          # Test case definitions
   output/                 # Generated outputs (HTML, JSON, survey.json)
@@ -160,7 +164,7 @@ src/plct_llm_compare/
   survey.py               # Survey command (generate SurveyJS JSON)
   judge_compare.py        # Judge compare command (A vs B with judge model)
   calibrate.py            # Calibrate command (pointwise scorer vs human)
-  scorer_bridge.py        # Imports the fine-tuning repo's scoring.py leaf module
+  scorer_bridge.py        # Imports the fine-tuning repo's judging.py leaf module
   human_eval.py           # Human eval command (annotation YAML + viewer)
   human_eval_template.py  # HTML template for the side-by-side viewer
   models.py               # Pydantic data models

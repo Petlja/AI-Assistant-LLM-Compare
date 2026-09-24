@@ -498,11 +498,19 @@ async def do_judge_compare(
     wt = judge_cumulative_scores.no_winner_count
     wi = judge_cumulative_scores.inconsistent_count
     summary_lines.append(
-        f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} "
-        f"Tie={wt / n:<6.0%} Inconsistent={wi / n:<6.0%}"
+        f"  {'Wins:':<24s} A={wa / n:<6.0%} B={wb / n:<6.0%} Tie={wt / n:<6.0%}"
+        + (f" Inconsistent={wi / n:<6.0%}" if wi else "")
     )
     pa = judge_cumulative_scores.position_agree_count
     summary_lines.append(f"  {'Position agreement:':<24s} {pa}/{n} ({pa / n:.0%})")
+    # Ties are now two different things; without this split a judge that simply
+    # reacts to answer order looks like a judge that saw a lot of even matches.
+    flips = judge_cumulative_scores.order_flip_tie_count
+    if flips:
+        summary_lines.append(
+            f"  {'  of which order-flips:':<24s} {flips}/{wt} tie(s) came from the "
+            "judge contradicting itself across the two orderings"
+        )
 
     for line in summary_lines:
         click.echo(line)

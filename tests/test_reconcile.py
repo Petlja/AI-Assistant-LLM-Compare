@@ -25,17 +25,30 @@ def test_agreement_on_tie():
     assert agreed is True
 
 
-def test_hard_disagreement_is_inconsistent():
-    # Both runs pick position A, i.e. each run prefers whichever answer came first.
+def test_hard_disagreement_is_tie():
+    # Both runs pick position A, i.e. each run prefers whichever answer came
+    # first. The judge has expressed no preference, so the verdict is a Tie —
+    # but position_agreed stays False, which is what makes the order bias
+    # visible downstream.
     result, agreed = JudgeCompareReconciledResult.reconcile(_result("A"), _result("A"))
-    assert result.winner == "Inconsistent"
+    assert result.winner == "Tie"
     assert agreed is False
 
 
-def test_soft_disagreement_is_inconsistent():
+def test_soft_disagreement_is_tie():
     result, agreed = JudgeCompareReconciledResult.reconcile(_result("A"), _result("Tie"))
-    assert result.winner == "Inconsistent"
+    assert result.winner == "Tie"
     assert agreed is False
+
+
+def test_order_flip_tie_is_distinguishable_from_a_real_tie():
+    # Both are Tie verdicts; only position_agreed separates "no preference"
+    # from "no consistency". Downstream analysis depends on this.
+    real, real_agreed = JudgeCompareReconciledResult.reconcile(_result("Tie"), _result("Tie"))
+    flip, flip_agreed = JudgeCompareReconciledResult.reconcile(_result("A"), _result("A"))
+    assert real.winner == flip.winner == "Tie"
+    assert real_agreed is True
+    assert flip_agreed is False
 
 
 def test_score_flip_and_half_up_rounding():

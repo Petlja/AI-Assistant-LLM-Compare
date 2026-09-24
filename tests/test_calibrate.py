@@ -33,14 +33,14 @@ CLOSE_CASE = "T3"
 
 
 class _StubConfig:
-    name = "v1-baseline"
+    name = "two-pass-rank"
     model = "stub-model"
-    temperature = 0.3
+    temperature = None
     scale_max = 100
 
 
 def _stub_scoring(calls: list):
-    """A stand-in for ai_assistant_fine_tuning.scoring."""
+    """A stand-in for ai_assistant_fine_tuning.judging."""
 
     def score_answer(client, *, system_message, question, answer, config):
         calls.append(answer)
@@ -50,24 +50,24 @@ def _stub_scoring(calls: list):
             # Deliberately close: 80 vs 77 is inside a tie band of 5.
             score = 80 if take == 1 else 77
         return types.SimpleNamespace(
-            score=score,
+            substance_score=score,
+            # Deliberately not equal to substance: a test that passed with the
+            # two wired together would not notice them being swapped.
+            language_score=max(1, score - 7),
             scale_max=100,
-            improved_answer=f"improved({answer[:12]})",
             scorer=config.name,
         )
 
-    def get_scorer(name="v1-baseline", *, model=None):
-        if name != "v1-baseline":
-            raise ValueError(f"Unknown scorer variant {name!r}. Known variants: v1-baseline")
+    def JudgeConfig(model=None):
         return _StubConfig()
 
-    return types.SimpleNamespace(score_answer=score_answer, get_scorer=get_scorer)
+    return types.SimpleNamespace(score_answer=score_answer, JudgeConfig=JudgeConfig)
 
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     calls: list = []
-    monkeypatch.setattr(calibrate_mod, "load_scoring", lambda: _stub_scoring(calls))
+    monkeypatch.setattr(calibrate_mod, "load_judging", lambda: _stub_scoring(calls))
     monkeypatch.setattr(calibrate_mod, "OpenAI", lambda **kw: object())
 
     cases = []
@@ -98,7 +98,6 @@ def env(tmp_path, monkeypatch):
 
 
 def _run(env, **kwargs) -> Path:
-    kwargs.setdefault("scorer_name", "v1-baseline")
     kwargs.setdefault("tie_band", 5)
     do_calibrate(
         str(env.cases_file), MODEL, MODEL, 1, 2, str(env.out_dir), **kwargs
@@ -226,13 +225,23 @@ def test_changed_answer_invalidates_the_cached_score(env):
     assert len(env.calls) == before + 1
 
 
-def test_improved_answers_are_written_per_side(env):
+def test_no_improved_answers_are_written(env):
+    """Pass 1 writes no prose, so there is nothing to record per side.
+
+    Scoring and writing are separate calls now; the improved answer belongs to
+    `astft gen-td` pass 2 and never reaches a calibration run.
+    """
+    assert not (_run(env) / "improved").exists()
+
+
+def test_both_scores_are_cached_per_side(env):
+    """language_score rides along free and must not be dropped on the way."""
     pair_dir = _run(env)
-    for case_id in ("T1", "T2", "T3"):
-        for side in ("a", "b"):
-            path = pair_dir / "improved" / f"{case_id}_{side}.md"
-            assert path.exists()
-            assert path.read_text(encoding="utf-8").startswith("improved(")
+    cached = list((pair_dir.parent / calibrate_mod.CACHE_DIR).rglob("*.json"))
+    assert cached, "expected the scorer cache to have been written"
+    payload = json.loads(cached[0].read_text(encoding="utf-8"))
+    assert payload["score"] == payload["substance_score"]
+    assert payload["language_score"] == payload["substance_score"] - 7
 
 
 def test_annotator_facing_file_leaks_no_scores(env):
@@ -247,9 +256,9 @@ def test_annotator_facing_file_leaks_no_scores(env):
 # --------------------------------------------------------------------------
 
 
-def test_unknown_scorer_is_a_clean_error(env):
-    with pytest.raises(Exception, match="v1-baseline"):
-        _run(env, scorer_name="nope")
+def test_the_judge_name_is_recorded_for_provenance(env):
+    """Agreement figures are filed under this name, so it has to reach the file."""
+    assert _results(_run(env)).scorer == "two-pass-rank"
 
 
 def test_tie_band_swallowing_the_whole_scale_is_refused(env):

@@ -1,6 +1,6 @@
-"""Import the fine-tuning repo's scorer without depending on its package.
+"""Import the fine-tuning repo's judge without depending on its package.
 
-`plcmp calibrate` has to run the *exact* scorer `astft gen-td` routes on —
+`plcmp calibrate` has to run the *exact* judge `astft gen-td` routes on —
 a copy would drift and the calibration would measure the wrong thing. But this
 repo cannot declare AI-Assistant-Fine-Tuning as a dependency:
 
@@ -12,10 +12,16 @@ repo cannot declare AI-Assistant-Fine-Tuning as a dependency:
   re-resolve the pinned training stack on the VM. That environment is not to be
   touched.
 
-So instead: `ai_assistant_fine_tuning/scoring.py` is written as a leaf module
+So instead: `ai_assistant_fine_tuning/judging.py` is written as a leaf module
 (pydantic only at runtime, never importing `core`), and we put its repo on
 `sys.path` and import just that module. Nothing else from that package is
 imported, and nothing heavy is reachable from it.
+
+It used to be `scoring.py`, which returned a single pointwise score and an
+improved answer from one call. Step 3 is two passes now: `judging.py` scores
+substance and Serbian separately and writes no prose, and routing ranks the
+batch instead of comparing against a threshold. Calibration follows the judge,
+not the filename.
 
 The two repos must sit side by side. Override with the
 `AI_ASSISTANT_FINE_TUNING_PATH` environment variable if they do not.
@@ -31,7 +37,7 @@ from types import ModuleType
 
 REPO_PATH_ENV = "AI_ASSISTANT_FINE_TUNING_PATH"
 DEFAULT_REPO_DIR_NAME = "AI-Assistant-Fine-Tuning"
-SCORING_MODULE = "ai_assistant_fine_tuning.scoring"
+JUDGING_MODULE = "ai_assistant_fine_tuning.judging"
 
 
 def fine_tuning_repo_path() -> Path:
@@ -45,17 +51,17 @@ def fine_tuning_repo_path() -> Path:
 
 
 @lru_cache(maxsize=1)
-def load_scoring() -> ModuleType:
-    """Import and return the fine-tuning repo's `scoring` module.
+def load_judging() -> ModuleType:
+    """Import and return the fine-tuning repo's `judging` module.
 
     Deliberately called at command runtime rather than at import time, so a
     missing sibling checkout does not break every other `plcmp` command.
     """
     repo = fine_tuning_repo_path()
-    module_file = repo / "ai_assistant_fine_tuning" / "scoring.py"
+    module_file = repo / "ai_assistant_fine_tuning" / "judging.py"
     if not module_file.exists():
         raise RuntimeError(
-            f"Could not find the fine-tuning scorer at {module_file}.\n"
+            f"Could not find the fine-tuning judge at {module_file}.\n"
             f"The two repos are expected to sit side by side:\n"
             f"    <parent>/{DEFAULT_REPO_DIR_NAME}\n"
             f"    <parent>/{Path(__file__).resolve().parents[2].name}\n"
@@ -70,10 +76,10 @@ def load_scoring() -> ModuleType:
     try:
         import importlib
 
-        return importlib.import_module(SCORING_MODULE)
+        return importlib.import_module(JUDGING_MODULE)
     except ImportError as exc:  # pragma: no cover - depends on external checkout
         raise RuntimeError(
-            f"Found {module_file} but could not import {SCORING_MODULE}: {exc}\n"
-            "scoring.py is meant to be a leaf module needing only pydantic. "
+            f"Found {module_file} but could not import {JUDGING_MODULE}: {exc}\n"
+            "judging.py is meant to be a leaf module needing only pydantic. "
             "If this fails, something heavyweight was added to its imports."
         ) from exc

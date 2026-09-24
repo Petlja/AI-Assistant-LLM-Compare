@@ -1,8 +1,13 @@
-"""Calibrate the fine-tuning pipeline's pointwise scorer against human preference.
+"""Calibrate the fine-tuning pipeline's pointwise judge against human preference.
 
-`astft gen-td` routes an answer to SFT or DPO using a POINTWISE score: the
-teacher model sees one answer, alone, and returns a number. Nobody has checked
-that those numbers mean anything.
+`astft gen-td` ranks the batch by substance_score and rewrites the worst share
+into DPO. The teacher model sees one answer, alone, and returns two numbers.
+Nobody has checked that they order answers the way a person would.
+
+Ranking makes this a better fit than it was: routing now depends on nothing but
+the pairwise ordering the score induces, which is exactly what this measures.
+Absolute accuracy near a threshold no longer matters, because there is no
+threshold.
 
 Humans are unreliable at absolute scores but good at "which of these two is
 better", so this command bridges the two: it scores each side of a pair
@@ -18,8 +23,6 @@ hand or with outside tools, deliberately: see PLAN.md.
       human_feedback.yml  the annotator fills this in
       eval_answers.yml    what the scorer said, row-aligned with the above
       assignment.yml      answer key: displayed A/B -> true (model, take)
-      improved/           the scorer's improved_answer per case and side
-
 The first three are meant to be read together, so eval_answers.yml is written in
 DISPLAYED frame: its `score_a` is the score of whatever the annotator saw as A.
 """
@@ -48,10 +51,9 @@ from .models import (
     TestCase,
     safe_model_name,
 )
-from .scorer_bridge import load_scoring
+from .scorer_bridge import load_judging
 
 RESULTS_FILE = "eval_answers.yml"
-IMPROVED_DIR = "improved"
 CACHE_DIR = ".score_cache"
 
 RESULTS_HEADER = (
@@ -71,15 +73,23 @@ def _derive_verdict(score_a: int, score_b: int, tie_band: int) -> str:
     return "A" if score_a > score_b else "B"
 
 
-def _cache_key(answer: str, model: str, take: int, scorer: str) -> str:
+def _cache_key(answer: str, model: str, take: int, scorer: str, scorer_model: str) -> str:
     """Identify a scored answer.
 
     Keyed on the answer text too, not just (model, take): re-running inference
     replaces the answer while leaving the model and take identical, and a stale
     score there would be invisible.
+
+    Keyed on the scorer's own model as well, because --scorer-model sweeps it
+    while the variant name stays put. Without it, running teacher-rubric on
+    gpt-5.4 would be served the gpt-5.4-mini scores from the previous run and
+    silently report them as the new model's.
     """
     digest = hashlib.sha256(answer.encode("utf-8")).hexdigest()[:16]
-    return f"{scorer}_{safe_model_name(model)}_t{take}_{digest}"
+    return (
+        f"{scorer}_{safe_model_name(scorer_model)}_"
+        f"{safe_model_name(model)}_t{take}_{digest}"
+    )
 
 
 class _Scorer:
@@ -99,7 +109,7 @@ class _Scorer:
 
     def score(self, *, system_message: str, question: str, answer: str,
               model: str, take: int) -> dict:
-        key = _cache_key(answer, model, take, self._config.name)
+        key = _cache_key(answer, model, take, self._config.name, self._config.model)
         cache_file = self._cache_dir / f"{key}.json"
         if cache_file.exists():
             self.hits += 1
@@ -112,10 +122,15 @@ class _Scorer:
             answer=answer,
             config=self._config,
         )
+        # "score" is substance: it is the number gen-td ranks on, so it is the
+        # one whose ordering has to agree with a human. language_score is
+        # recorded beside it because the same pairs answer a second question
+        # for free -- whether the judge ranks Serbian the way a person does.
         payload = {
-            "score": result.score,
+            "score": result.substance_score,
+            "substance_score": result.substance_score,
+            "language_score": result.language_score,
             "scale_max": result.scale_max,
-            "improved_answer": result.improved_answer,
             "scorer": result.scorer,
         }
         self._cache_dir.mkdir(parents=True, exist_ok=True)
@@ -154,22 +169,19 @@ def do_calibrate(
     model_a_take: int,
     model_b_take: int,
     out_dir: str,
-    scorer_name: str,
     tie_band: int,
+    scorer_model: str | None = None,
     seed: int = 0,
     shuffle: bool = True,
     force: bool = False,
     concurrency: int = 4,
 ) -> None:
     try:
-        scoring = load_scoring()
+        scoring = load_judging()
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from exc
 
-    try:
-        config = scoring.get_scorer(scorer_name)
-    except ValueError as exc:
-        raise click.ClickException(str(exc)) from exc
+    config = scoring.JudgeConfig(model=scorer_model) if scorer_model         else scoring.JudgeConfig()
 
     if tie_band >= config.scale_max:
         raise click.ClickException(
@@ -227,9 +239,6 @@ def do_calibrate(
             )
         )
 
-    improved_dir = pair_dir / IMPROVED_DIR
-    improved_dir.mkdir(parents=True, exist_ok=True)
-
     results: list[CalibrationCaseResult] = []
     verdict_counts = {"A": 0, "B": 0, "Tie": 0}
 
@@ -248,11 +257,6 @@ def do_calibrate(
                 verdict=verdict,
             )
         )
-        for side, payload in (("a", shown_a), ("b", shown_b)):
-            (improved_dir / f"{pc.case.case_key}_{side}.md").write_text(
-                payload["improved_answer"], encoding="utf-8"
-            )
-
         click.echo(
             f"  - {pc.case.case_key}: A={shown_a['score']} B={shown_b['score']} "
             f"-> {verdict}"

@@ -61,7 +61,8 @@ class JudgeCompareCumulativeScores(BaseModel):
     winner_a_count: int = 0
     winner_b_count: int = 0
     no_winner_count: int = 0
-    inconsistent_count: int = 0
+    inconsistent_count: int = 0  # legacy result files only
+    order_flip_tie_count: int = 0
     position_agree_count: int = 0
     count: int = 0
 
@@ -79,12 +80,18 @@ class JudgeCompareCumulativeScores(BaseModel):
         elif judge_result.winner == "B":
             self.winner_b_count += 1
         elif judge_result.winner == "Inconsistent":
+            # Legacy files only; current runs never take this branch.
             self.inconsistent_count += 1
         else:
             self.no_winner_count += 1
 
         if position_agreed:
             self.position_agree_count += 1
+        elif judge_result.winner == "Tie":
+            # A tie the judge only reached by contradicting itself across the
+            # two orderings. Counted separately so a summary can distinguish
+            # "no preference" from "no consistency".
+            self.order_flip_tie_count += 1
 
         self.count += 1
 
@@ -123,13 +130,19 @@ class JudgeCompareReconciledResult(JudgeCompareStructuredResult):
     """Reconciled AB+BA verdict.
 
     Never used as an LLM response format — only the base class's schema is sent
-    to the judge, so the judge itself can never output "Inconsistent".
+    to the judge, so the judge itself never produces this class's verdict.
+
+    "Inconsistent" is retained in the Literal for one reason only: judge result
+    files written before 2026-09-10 contain it, and they must still parse. No
+    new run produces it — an order-flip is now a Tie. See `reconcile`.
     """
 
     winner: Literal["A", "B", "Tie", "Inconsistent"] = Field(
         description=(
-            "Final verdict across both orderings: A, B, Tie, or Inconsistent "
-            "when the two runs disagree after un-swapping."
+            "Final verdict across both orderings: A, B, or Tie. Tie covers both "
+            "a genuine draw and the two runs disagreeing after un-swapping; "
+            "`position_agreed` tells the two apart. "
+            '"Inconsistent" is legacy, read-only.'
         ),
     )
 
@@ -163,9 +176,15 @@ class JudgeCompareReconciledResult(JudgeCompareStructuredResult):
         if position_agreed:
             final_winner = ab.winner
         else:
-            # Any position-swap disagreement means the judge is order-biased on
-            # this pair; surface it instead of silently resolving.
-            final_winner = "Inconsistent"
+            # A judge that says A one way and B the other has expressed no
+            # preference, so the verdict is a Tie — and a Tie can be compared
+            # against a human's Tie, which "Inconsistent" never could.
+            #
+            # The order-bias signal is NOT lost: `position_agreed` is returned
+            # here and written per case to judge_results.yml, so the rate is
+            # still computable. Read it — a judge that ties this way often is
+            # reacting to order, not judging.
+            final_winner = "Tie"
 
         combined_analysis = (
             f"=== Run AB ===\n{ab.analysis}\n\n"

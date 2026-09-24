@@ -139,3 +139,8 @@ output/
 uv.lock
 # Working plan, kept local (not merged to main)
 PLAN.md
+
+# Tinkering scratch scripts
+scratch/
+os6-testcases-cyrl.yaml
+os6-testcases.yaml
