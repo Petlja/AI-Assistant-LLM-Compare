@@ -144,3 +144,4 @@ PLAN.md
 scratch/
 os6-testcases-cyrl.yaml
 os6-testcases.yaml
+heldout-testcases*.yaml

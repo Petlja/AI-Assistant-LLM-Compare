@@ -114,6 +114,12 @@ def inference(cases: str, model: str, take: int, temperature: float) -> None:
     default="gpt-4o",
     help="Judge model that compares answers from model A and model B.",
 )
+@click.option(
+    "--checks",
+    default=None,
+    type=click.Path(exists=True),
+    help="The cases YAML whose `# checks:` notes the judge reads (optional).",
+)
 def judge_compare(
     cases: str,
     cases_b: str | None,
@@ -122,12 +128,14 @@ def judge_compare(
     model_a_take: int,
     model_b_take: int,
     judge_model: str,
+    checks: str | None,
 ) -> None:
     """Compare two sets of pre-generated answers, judged by a third model.
 
     With one cases file both sides share a system message and only the model or
     the take differs. Pass --cases-b to give each side its own system message
-    and compare a system-message change instead.
+    and compare a system-message change instead. The judge prompt is a
+    teaching-assistant fault list (v2); results carry a '-v2' judge tag.
     """
     asyncio.run(
         do_judge_compare(
@@ -138,6 +146,7 @@ def judge_compare(
             model_b_take,
             judge_model,
             cases_b_fname=cases_b,
+            checks_fname=checks,
         )
     )
 
